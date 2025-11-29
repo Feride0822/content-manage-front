@@ -7,9 +7,17 @@ import Notification from "../pages/Notification";
 import Profile from "../pages/Profile";
 import Logut from "../pages/Logut";
 import Explore from "../pages/Explore";
+import Login from "../pages/Login";
+import Register from "../pages/Register";
 
 function AppRouter() {
   const router = createBrowserRouter([
+    {
+      path: "/login", element: <Login />,
+    },
+    {
+      path: "/register", element: <Register />,
+    },
     {
       path: "/",
       element: <Layout />,
