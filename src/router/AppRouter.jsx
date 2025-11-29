@@ -17,7 +17,7 @@ function AppRouter() {
         { index: true, element: <Home /> },
         { path: "chat", element: <Chat /> },
         { path: "notification", element: <Notification /> },
-        {path: "explore", element:<Explore/>},
+        { path: "explore", element: <Explore /> },
         { path: "profile", element: <Profile /> },
         { path: "log-out", element: <Logut /> },
       ],
