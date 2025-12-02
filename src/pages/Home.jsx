@@ -5,7 +5,8 @@ import { MdOutlineRemoveRedEye } from "react-icons/md";
 function Home() {
   return (
     <div className="w-full flex justify-center pt-10">
-      <div className="flex w-1/2 min-h-screen flex-col rounded-4xl items-center bg-gray-100">
+
+      <div className="flex w-1/2 min-h-screen flex-col rounded-4xl items-center bg-gray-50">
 
         <div className="w-full rounded-4xl flex flex-col gap-5 shadow-2xl bg-white p-5">
           <div className="px-5">
@@ -42,9 +43,7 @@ function Home() {
           </form>
         </div>
 
-       
-       
-        <div className="w-full flex flex-col gap-5 mt-5 px-5">
+        <div className="w-full flex flex-col gap-5 mt-5 px-5 pb-10">
           <div className="bg-white rounded-2xl shadow-md p-5 flex flex-col gap-3">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-3">
@@ -80,7 +79,9 @@ function Home() {
             </div>
           </div>
         </div>
+
       </div>
+
     </div>
   );
 }
