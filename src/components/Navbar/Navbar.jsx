@@ -3,7 +3,7 @@ import { FiLogOut, FiUser } from "react-icons/fi";
 import { HiOutlineHome } from "react-icons/hi";
 import { IoMdNotificationsOutline } from "react-icons/io";
 import { TbBrandSafari } from "react-icons/tb";
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 function Navbar() {
   const data = [
@@ -17,7 +17,7 @@ function Navbar() {
 
   return (
     <div className="w-full h-15 border-b-2">
-      <div className="container mx-auto px-15 h-full flex w-full justify-between ">
+      <div className="container mx-auto px-15 h-full flex w-full justify-between">
         <div className="flex gap-4 items-center">
           <FiUser color="blue" />
           <h4>Anonymous Social</h4>
@@ -28,10 +28,15 @@ function Navbar() {
             {data.map((item, index) => {
               const Icon = item.icon;
               return (
-                <li key={index}>
-                  <Link to={item.path}>
+                <li key={index} className="flex">
+                  <NavLink to={item.path} className={({ isActive }) =>
+                      isActive
+                        ? "text-green-300"
+                        : ""
+                    }
+                  >
                     <Icon size={25} />
-                  </Link>
+                  </NavLink>
                 </li>
               );
             })}
