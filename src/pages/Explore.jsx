@@ -1,5 +1,7 @@
+import { useState } from "react";
+
 function Explore() {
-  const users = [
+  const [users, setUsers] = useState([
     {
       username: "abcd",
       posts: 1,
@@ -35,7 +37,13 @@ function Explore() {
       following: false,
       avatar: "https://i.pravatar.cc/150?img=20",
     },
-  ];
+  ]);
+
+  const toggleFollow = (index) => {
+    const updated = [...users];
+    updated[index].following = !updated[index].following;
+    setUsers(updated);
+  };
 
   return (
     <div className="w-full max-w-2xl mx-auto mt-5 space-y-3">
@@ -46,14 +54,12 @@ function Explore() {
         >
           {/* Left user info */}
           <div className="flex items-center gap-3">
-            {/* Avatar */}
             <img
               src={user.avatar}
               alt="avatar"
               className="w-12 h-12 rounded-full object-cover border"
             />
 
-            {/* User info */}
             <div>
               <h4 className="font-medium">{user.username}</h4>
               <p className="text-sm text-gray-500">
@@ -63,15 +69,16 @@ function Explore() {
             </div>
           </div>
 
-          {/* Follow button */}
+          {/* Follow / Unfollow button */}
           <button
+            onClick={() => toggleFollow(index)}
             className={`px-4 py-1 rounded-xl border transition-all ${
               user.following
                 ? "bg-white border-gray-300 text-gray-700"
                 : "bg-black text-white"
             }`}
           >
-            {user.following ? "Following" : "Follow"}
+            {user.following ? "Unfollow" : "Follow"}
           </button>
         </div>
       ))}
