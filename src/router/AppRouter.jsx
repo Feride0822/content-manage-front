@@ -9,18 +9,25 @@ import Logut from "../pages/Logut";
 import Explore from "../pages/Explore";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
+import ProtectedRoute from "./ProtectedRoute";
 
 function AppRouter() {
   const router = createBrowserRouter([
     {
-      path: "/login", element: <Login />,
+      path: "/login",
+      element: <Login />,
     },
     {
-      path: "/register", element: <Register />,
+      path: "/register",
+      element: <Register />,
     },
     {
       path: "/",
-      element: <Layout />,
+      element: (
+        <ProtectedRoute>
+          <Layout />
+        </ProtectedRoute>
+      ),
       children: [
         { index: true, element: <Home /> },
         { path: "chat", element: <Chat /> },

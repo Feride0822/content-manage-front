@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import { VscAccount } from "react-icons/vsc";
 import { BsInfoSquareFill } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
-import { registerUser } from "../api/api";
+import { registerUser } from "../api/auth";
+import { useAuth } from "../context/AuthContext";
 
 const Register = () => {
-  const [username, setUsername] = useState("");
+  const [uName, setUname] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -13,10 +14,7 @@ const Register = () => {
 
   const navigate = useNavigate();
 
-  // Function to auto-generate pseudoname
-  const generatePseudoname = () => {
-    return "user" + Math.floor(10000 + Math.random() * 90000);
-  };
+  const { register } = useAuth();
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -24,29 +22,28 @@ const Register = () => {
     setSuccess("");
     setIsLoading(true);
 
-    // Basic frontend validation
-    if (username.length < 4 || password.length < 6) {
+    if (uName.length < 4 || password.length < 6) {
       setError("Username must be 4+ chars, Password must be 6+ chars.");
       setIsLoading(false);
       return;
     }
 
-    const pseudoname = generatePseudoname();
-
     try {
-      const data = await registerUser(username, password, pseudoname);
-      console.log("User ID:", data.id);
-      console.log("Username:", data.username);
-      console.log("Pseudoname:", data.pseudoname);
-      console.log(data.message);
+      const data = await registerUser(uName, password);
+      const { accessToken, pseudoname, username } = data;
+
+      register({
+        accessToken,
+        user: {
+          username,
+          pseudoname,
+        },
+      });
 
       setSuccess(data.message);
-      // Redirect to login after short delay
-      setTimeout(() => {
-        navigate("/login");
-      }, 1000);
+      navigate("/");
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Registration failed");
     } finally {
       setIsLoading(false);
     }
@@ -66,7 +63,8 @@ const Register = () => {
           </div>
           <h1 className="text-xl text-gray-900">Anonymous Social</h1>
           <p className="text-lg text-gray-500 mt-1">
-            Only username and password required; pseudoname will be auto-generated
+            Only username and password required; pseudoname will be
+            auto-generated
           </p>
         </div>
 
@@ -74,14 +72,17 @@ const Register = () => {
         <form onSubmit={handleRegister} className="space-y-6">
           {/* Username */}
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="username"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Username
             </label>
             <input
               id="username"
               type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={uName}
+              onChange={(e) => setUname(e.target.value)}
               placeholder="Enter username"
               required
               disabled={isLoading}
@@ -91,7 +92,10 @@ const Register = () => {
 
           {/* Password */}
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Password
             </label>
             <input

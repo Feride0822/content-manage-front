@@ -1,25 +1,46 @@
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import { VscAccount } from "react-icons/vsc";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { loginUser } from "../api/auth";
 
 const Login = () => {
-  const [username, setUsername] = useState("");
+  const [uName, setUname] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = useCallback(
-    async (e) => {
-      e.preventDefault();
-      setError("");
-      setIsLoading(true);
-    },
-    [username, password, navigate]
-  );
+  const { login } = useAuth();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+    try {
+      const data = await loginUser(uName, password);
+
+      const { accessToken, username, pseudoname } = data;
+
+      login({
+        accessToken,
+        user: {
+          username,
+          pseudoname,
+        },
+      });
+
+      navigate("/");
+    } catch (error) {
+      console.error("Error while log in the user", error);
+      setError(error.message || "Login failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const navigateToRegister = () => {
-    navigate('/register');
+    navigate("/register");
   };
 
   return (
@@ -64,8 +85,8 @@ const Login = () => {
             <input
               id="username"
               type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={uName}
+              onChange={(e) => setUname(e.target.value)}
               placeholder="Enter your real username"
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out placeholder-gray-400 text-sm"
@@ -133,10 +154,10 @@ const Login = () => {
 
         {/* footer register link */}
         <div className="mt-6 text-center text-sm">
-        <p className="text-gray-600">
-            Don't have an account?{' '}
-            <button 
-              type="button" 
+          <p className="text-gray-600">
+            Don't have an account?{" "}
+            <button
+              type="button"
               onClick={navigateToRegister}
               className="font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 rounded-md cursor-pointer"
             >
