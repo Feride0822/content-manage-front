@@ -2,8 +2,8 @@ import axios from "axios";
 import { STORAGE_KEYS } from "../constants/auth.constants";
 
 const api = axios.create({
-  baseURL: "https://os-project-k18n.onrender.com",
-  // baseURL: "http://localhost:3003",
+  baseURL: "https://os-project-k18n.onrender.com/api",
+  // baseURL: "http://localhost:3003/api",
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
@@ -13,11 +13,10 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
-
   if (token) {
+    config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
   }
-
   return config;
 });
 
@@ -28,20 +27,22 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
+      originalRequest.headers = originalRequest.headers || {};
 
       try {
-        const res = await axios.post(
-          "/api/auth/refresh",
-          {},
-          { withCredentials: true }
-        );
+        const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+        if (!refreshToken) throw new Error("No refresh token");
 
-        const newToken = res.data.accessToken;
-        localStorage.setItem(STORAGE_KEYS.TOKEN, newToken);
+        const res = await api.post("/api/auth/refresh", { refreshToken });
 
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        const { accessToken, refreshToken: newRefreshToken } = res.data;
+
+        localStorage.setItem(STORAGE_KEYS.TOKEN, accessToken);
+        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
+
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
-      } catch {
+      } catch (err) {
         localStorage.clear();
         window.location.href = "/login";
       }

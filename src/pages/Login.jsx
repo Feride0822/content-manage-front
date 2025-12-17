@@ -20,13 +20,16 @@ const Login = () => {
     try {
       const data = await loginUser(uName, password);
 
-      const { accessToken, username, pseudoname } = data;
+      const { accessToken, user, refreshToken } = data;
+      console.log(data, "Coming from login response");
 
       login({
         accessToken,
+        refreshToken,
         user: {
-          username,
-          pseudoname,
+          id: user?.id,
+          username: user.username,
+          pseudoname: user.pseudoname,
         },
       });
 

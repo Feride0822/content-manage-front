@@ -1,50 +1,55 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { STORAGE_KEYS } from "../constants/auth.constants";
 
-const AuthContext = createContext(null);
+const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
+  const [user, setUser] = useState();
+  const [token, setToken] = useState();
+  const [refreshToken, setRefreshToken] = useState();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const storedToken = localStorage.getItem(STORAGE_KEYS.TOKEN);
     const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
+    const storedRefresh = localStorage.getItem(STORAGE_KEYS.REFRESH);
 
     if (storedToken && storedUser) {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
     }
 
+    if (storedRefresh) {
+      setRefreshToken(storedRefresh);
+    }
+
     setLoading(false);
   }, []);
 
   const login = (authData) => {
-    const { accessToken, user } = authData;
+    const { accessToken, refreshToken, user } = authData;
 
     localStorage.setItem(STORAGE_KEYS.TOKEN, accessToken);
+    localStorage.setItem(STORAGE_KEYS.REFRESH, refreshToken);
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
 
     setToken(accessToken);
+    setRefreshToken(refreshToken);
     setUser(user);
   };
 
   const register = (authData) => {
-    const { accessToken, user } = authData;
-
-    localStorage.setItem(STORAGE_KEYS.TOKEN, accessToken);
-    localStorage.setItem(STORAGE_KEYS.USER, user);
-
-    setToken(null);
-    setUser(null);
+    login(authData);
   };
 
+  // Logout user
   const logout = () => {
     localStorage.removeItem(STORAGE_KEYS.TOKEN);
     localStorage.removeItem(STORAGE_KEYS.USER);
+    localStorage.removeItem(STORAGE_KEYS.REFRESH);
 
     setToken(null);
+    setRefreshToken(null);
     setUser(null);
   };
 
@@ -53,11 +58,12 @@ export const AuthProvider = ({ children }) => {
       value={{
         user,
         token,
+        refreshToken,
         isAuthenticated: !!token,
         login,
+        register,
         logout,
         loading,
-        register,
       }}
     >
       {children}
@@ -65,4 +71,8 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
+  return context;
+};

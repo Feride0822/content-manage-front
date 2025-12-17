@@ -8,6 +8,6 @@ function Layout() {
       <Outlet />
     </>
   );
-}
+} 
 
 export default Layout;

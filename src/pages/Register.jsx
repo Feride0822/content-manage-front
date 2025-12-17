@@ -30,13 +30,15 @@ const Register = () => {
 
     try {
       const data = await registerUser(uName, password);
-      const { accessToken, pseudoname, username } = data;
+      const { accessToken, user, refreshToken } = data;
 
       register({
         accessToken,
+        refreshToken,
         user: {
-          username,
-          pseudoname,
+          id: user.id,
+          username: user.username,
+          pseudoname: user.pseudoname,
         },
       });
 

@@ -10,6 +10,7 @@ import Explore from "../pages/Explore";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
 import ProtectedRoute from "./ProtectedRoute";
+import NotFound from "../pages/Not-Found";
 
 function AppRouter() {
   const router = createBrowserRouter([
@@ -20,6 +21,10 @@ function AppRouter() {
     {
       path: "/register",
       element: <Register />,
+    },
+    {
+      path: "*",
+      element: <NotFound />,
     },
     {
       path: "/",
