@@ -13,7 +13,6 @@ const Register = () => {
   const [success, setSuccess] = useState("");
 
   const navigate = useNavigate();
-
   const { register } = useAuth();
 
   const handleRegister = async (e) => {
@@ -72,7 +71,7 @@ const Register = () => {
 
         {/* Form */}
         <form onSubmit={handleRegister} className="space-y-6">
-          {/* Username */}
+          {/* Username field */}
           <div>
             <label
               htmlFor="username"
@@ -92,7 +91,7 @@ const Register = () => {
             />
           </div>
 
-          {/* Password */}
+          {/* Password field */}
           <div>
             <label
               htmlFor="password"
