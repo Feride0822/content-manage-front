@@ -36,13 +36,20 @@ export const getPostById = async (id) => {
   return data;
 };
 
-export const updatePost = async (id, { content }) => {
-  const urls = await uploadFiles(files);
-  const images = urls?.map((url) => ({ url }));
+export const updatePost = async (
+  id,
+  { content, files = [], existingImages = [] }
+) => {
+  // Upload new files if any
+  let images = existingImages; // keep existing URLs
+  if (files.length > 0) {
+    const uploadedUrls = await uploadFiles(files);
+    images = [...existingImages, ...uploadedUrls.map((url) => ({ url }))];
+  }
 
   const payload = {
     ...(content && { content }),
-    ...(images?.length > 0 && { images }),
+    ...(images?.length > 0 && { imageUrls: images }),
   };
 
   const { data } = await api.put(`/posts/${id}`, payload, {
@@ -52,7 +59,7 @@ export const updatePost = async (id, { content }) => {
   return data;
 };
 
-export const deletePosts = async (id) => {
+export const deletePost = async (id) => {
   const { data } = await api.delete(`/posts/${id}`);
   return data;
 };

@@ -2,8 +2,8 @@ import axios from "axios";
 import { STORAGE_KEYS } from "../constants/auth.constants";
 
 const api = axios.create({
-  baseURL: "https://os-project-k18n.onrender.com/api",
-  // baseURL: "http://localhost:3003/api",
+  // baseURL: "https://os-project-k18n.onrender.com/api",
+  baseURL: "http://localhost:3003/api",
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",

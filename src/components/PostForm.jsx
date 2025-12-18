@@ -1,44 +1,77 @@
 import { useState, useEffect } from "react";
-import { createPost } from "../api/post";
+import { createPost, updatePost } from "../api/post";
 
-export default function PostForm({ onPostCreated }) {
-  const [content, setContent] = useState("");
-  const [imageFiles, setImageFiles] = useState([]);
+export default function PostForm({
+  postId = null, // if editing
+  initialContent = "",
+  initialFiles = [], // existing image URLs
+  onPostCreated,
+  onPostUpdated,
+  onCancel, // callback when cancel editing
+}) {
+  const [content, setContent] = useState(initialContent);
+  const [newFiles, setNewFiles] = useState([]); // new files to upload
+  const [existingImages, setExistingImages] = useState(initialFiles); // existing URLs
   const [previews, setPreviews] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Update previews whenever new files or existing images change
   useEffect(() => {
-    if (!imageFiles || imageFiles.length === 0) {
-      setPreviews([]);
-      return;
-    }
+    const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
+    setPreviews([...existingImages, ...newPreviews]);
 
-    const objectUrls = imageFiles.map((file) => URL.createObjectURL(file));
-    setPreviews(objectUrls);
+    return () => newPreviews.forEach((url) => URL.revokeObjectURL(url));
+  }, [newFiles, existingImages]);
 
-    return () => objectUrls.forEach((url) => URL.revokeObjectURL(url));
-  }, [imageFiles]);
+  // Reset state when editing a different post
+  useEffect(() => {
+    setContent(initialContent);
+    setExistingImages(initialFiles);
+    setNewFiles([]);
+  }, [initialContent, initialFiles]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!content && imageFiles.length === 0) return;
+    if (!content && newFiles.length === 0 && existingImages.length === 0)
+      return;
 
     setLoading(true);
     try {
-      const newPost = await createPost({
-        content,
-        files: imageFiles,
-      });
-
-      setContent("");
-      setImageFiles([]);
-
-      if (onPostCreated) onPostCreated(newPost);
+      if (postId) {
+        // Edit existing post
+        const updatedPost = await updatePost(postId, {
+          content,
+          files: newFiles,
+          existingImages,
+        });
+        if (onPostUpdated) onPostUpdated(updatedPost);
+      } else {
+        // Create new post
+        const newPost = await createPost({
+          content,
+          files: newFiles,
+        });
+        if (onPostCreated) onPostCreated(newPost);
+        setContent("");
+        setNewFiles([]);
+        setExistingImages([]);
+      }
     } catch (err) {
-      console.error("Error creating post", err);
+      console.error(
+        postId ? "Error updating post" : "Error creating post",
+        err
+      );
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRemoveExistingImage = (url) => {
+    setExistingImages((prev) => prev.filter((u) => u !== url));
+  };
+
+  const handleRemoveNewFile = (file) => {
+    setNewFiles((prev) => prev.filter((f) => f !== file));
   };
 
   return (
@@ -59,29 +92,71 @@ export default function PostForm({ onPostCreated }) {
             accept="image/*"
             multiple
             className="hidden"
-            onChange={(e) => setImageFiles(Array.from(e.target.files || []))}
+            onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
           />
         </label>
 
-        <button
-          className="px-8 py-2 bg-blue-500 text-white rounded-2xl hover:bg-blue-600 transition"
-          onClick={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? "Posting..." : "Post"}
-        </button>
+        <div className="flex gap-2">
+          {postId && onCancel && (
+            <button
+              type="button"
+              className="px-4 py-2 bg-gray-300 rounded-2xl hover:bg-gray-400 transition"
+              onClick={onCancel}
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            className="px-8 py-2 bg-blue-500 text-white rounded-2xl hover:bg-blue-600 transition"
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {loading
+              ? postId
+                ? "Updating..."
+                : "Posting..."
+              : postId
+              ? "Update"
+              : "Post"}
+          </button>
+        </div>
       </div>
 
-      {/* Preview */}
+      {/* Previews */}
       {previews.length > 0 && (
         <div className="flex gap-2 overflow-x-auto mt-2">
-          {previews.map((src, i) => (
-            <img
-              key={i}
-              src={src}
-              alt={`Preview ${i + 1}`}
-              className="h-28 w-28 object-cover rounded-lg shrink-0"
-            />
+          {existingImages.map((url) => (
+            <div key={url} className="relative">
+              <img
+                src={url}
+                alt="Existing"
+                className="h-28 w-28 object-cover rounded-lg shrink-0"
+              />
+              <button
+                type="button"
+                onClick={() => handleRemoveExistingImage(url)}
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          {newFiles.map((file, i) => (
+            <div key={i} className="relative">
+              <img
+                src={URL.createObjectURL(file)}
+                multiple
+                alt={`Preview ${i + 1}`}
+                className="h-28 w-28 object-cover rounded-lg shrink-0"
+              />
+              <button
+                type="button"
+                onClick={() => handleRemoveNewFile(file)}
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center"
+              >
+                ×
+              </button>
+            </div>
           ))}
         </div>
       )}
