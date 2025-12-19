@@ -1,16 +1,19 @@
-import React, { useEffect, useRef, useState } from "react";
-import { getPosts } from "../api/post";
+import React, { useState, useEffect, useRef } from "react";
 import PostCard from "./PostCard";
 import PostForm from "./PostForm";
+import { getPosts } from "../api/post";
+import { useWebSocket } from "../providers/WebSocketProvider";
 
-const PostList = () => {
+export default function PostList({ currentUserId }) {
   const [posts, setPosts] = useState([]);
-  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [offset, setOffset] = useState(0);
   const limit = 10;
   const hasMore = useRef(true);
   const isFetching = useRef(false);
+
+  const { socketService } = useWebSocket();
 
   const fetchPosts = async () => {
     if (!hasMore.current || isFetching.current) return;
@@ -23,7 +26,7 @@ const PostList = () => {
       setPosts((prev) => [...prev, ...res.data]);
       setOffset((prev) => prev + limit);
     } catch (err) {
-      console.error("Error while fetching posts", err);
+      console.error(err);
       setError(err.message || "Error fetching posts");
     } finally {
       setLoading(false);
@@ -48,7 +51,6 @@ const PostList = () => {
         }
       }, 150);
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => {
       window.removeEventListener("scroll", handleScroll);
@@ -56,12 +58,101 @@ const PostList = () => {
     };
   }, []);
 
+  // Socket events
+  useEffect(() => {
+    if (!socketService) return;
+
+    const unsubscribeCreated = socketService.on("post:created", (newPost) => {
+      console.log("🟢 New post via socket", newPost);
+      setPosts((prev) => {
+        // Avoid duplicates
+        if (prev.some((p) => p.id === newPost.id)) return prev;
+        return [newPost, ...prev];
+      });
+      setOffset((prev) => prev + 1);
+    });
+
+    const unsubscribeUpdated = socketService.on(
+      "post:updated",
+      (updatedPost) => {
+        console.log("🔄 Post updated via socket", updatedPost);
+        setPosts((prev) =>
+          prev.map((p) => (p.id === updatedPost.id ? updatedPost : p))
+        );
+      }
+    );
+
+    const unsubscribeDeleted = socketService.on(
+      "post:deleted",
+      ({ postId }) => {
+        console.log("🗑️ Post deleted via socket", postId);
+        setPosts((prev) => prev.filter((p) => p.id !== postId));
+        setOffset((prev) => Math.max(0, prev - 1));
+      }
+    );
+
+    // Update like counts from WebSocket (for other users' likes)
+    const unsubscribeLikeCreated = socketService.on(
+      "like:created",
+      ({ like, post: updatedPost }) => {
+        console.log("❤️ Like added via socket", like);
+        setPosts((prev) =>
+          prev.map((p) => {
+            if (p.id === updatedPost.id) {
+              return {
+                ...p,
+                _count: {
+                  ...p._count,
+                  likes:
+                    updatedPost._count?.likes || (p._count?.likes || 0) + 1,
+                },
+              };
+            }
+            return p;
+          })
+        );
+      }
+    );
+
+    const unsubscribeLikeRemoved = socketService.on(
+      "like:removed",
+      ({ postId }) => {
+        console.log("💔 Like removed via socket", postId);
+        setPosts((prev) =>
+          prev.map((p) => {
+            if (p.id === postId) {
+              return {
+                ...p,
+                _count: {
+                  ...p._count,
+                  likes: Math.max(0, (p._count?.likes || 0) - 1),
+                },
+              };
+            }
+            return p;
+          })
+        );
+      }
+    );
+
+    return () => {
+      unsubscribeCreated();
+      unsubscribeUpdated();
+      unsubscribeDeleted();
+      unsubscribeLikeCreated();
+      unsubscribeLikeRemoved();
+    };
+  }, [socketService]);
+
   const handlePostCreated = (newPost) => {
-    setPosts((prev) => [newPost, ...prev]);
+    setPosts((prev) => {
+      // Avoid duplicates
+      if (prev.some((p) => p.id === newPost.id)) return prev;
+      return [newPost, ...prev];
+    });
     setOffset((prev) => prev + 1);
   };
 
-  // Delete post from UI
   const handleDeleted = (id) => {
     setPosts((prev) => prev.filter((p) => p.id !== id));
     setOffset((prev) => Math.max(0, prev - 1));
@@ -75,17 +166,18 @@ const PostList = () => {
         </div>
       )}
 
-      {/* Create post */}
       <PostForm onPostCreated={handlePostCreated} />
 
-      {/* Posts */}
-      {posts.map((post, index) => (
-        <PostCard key={index} post={post} onDelete={handleDeleted} />
+      {posts.map((post) => (
+        <PostCard
+          key={post.id}
+          post={post}
+          onDelete={handleDeleted}
+          currentUserId={currentUserId}
+        />
       ))}
 
       {loading && <p className="text-center text-gray-500">Loading...</p>}
     </div>
   );
-};
-
-export default PostList;
+}

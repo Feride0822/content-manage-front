@@ -78,6 +78,7 @@ export default function PostForm({ onPostCreated }) {
           {previews.map((src, i) => (
             <img
               key={i}
+              multiple
               src={src}
               alt={`Preview ${i + 1}`}
               className="h-28 w-28 object-cover rounded-lg shrink-0"

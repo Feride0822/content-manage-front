@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem(STORAGE_KEYS.TOKEN, accessToken);
     localStorage.setItem(STORAGE_KEYS.REFRESH, refreshToken);
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-
+    localStorage.setItem(STORAGE_KEYS.USERID, user?.id);
     setToken(accessToken);
     setRefreshToken(refreshToken);
     setUser(user);
@@ -47,6 +47,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem(STORAGE_KEYS.TOKEN);
     localStorage.removeItem(STORAGE_KEYS.USER);
     localStorage.removeItem(STORAGE_KEYS.REFRESH);
+    localStorage.removeItem(STORAGE_KEYS.USERID);
 
     setToken(null);
     setRefreshToken(null);

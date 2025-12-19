@@ -1,151 +1,176 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { CiHeart } from "react-icons/ci";
 import { IoHeart } from "react-icons/io5";
 import { FaRegComment } from "react-icons/fa";
 import { MdOutlineRemoveRedEye } from "react-icons/md";
-import userAvatarImg from "../../public/user.jpeg";
+import { toggleLike, checkLiked } from "../api/like";
 import CommentList from "./CommentList";
-import { toggleLike, checkLiked, getLikers } from "../api/like";
-import LikersTooltip from "./LikersTooltip";
+import { useWebSocket } from "../providers/WebSocketProvider";
+import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
 
-const PostCard = ({ post }) => {
-  const [showComments, setShowComments] = useState(false);
+export default function PostCard({ post, onDelete, currentUserId }) {
+  const { socketService } = useWebSocket();
   const [liked, setLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(post?._count?.likes || 0);
-  const [loadingLike, setLoadingLike] = useState(false);
-  const [likers, setLikers] = useState([]);
-  const [showTooltip, setShowTooltip] = useState(false);
-  const [tooltipTimeout, setTooltipTimeout] = useState(null);
+  const [likesCount, setLikesCount] = useState(post._count?.likes || 0);
+  const [isTogglingLike, setIsTogglingLike] = useState(false);
+  const ignoreNextSocketEvent = useRef(false);
 
-  // Fetch like status on mount
+  // Initial fetch of like status
   useEffect(() => {
-    const fetchLikeStatus = async () => {
+    const fetchLiked = async () => {
       try {
         const res = await checkLiked(post.id);
         setLiked(res.liked);
       } catch (err) {
-        console.error(err);
+        console.error("Error checking liked status:", err);
       }
     };
-    fetchLikeStatus();
+    fetchLiked();
   }, [post.id]);
 
-  // Toggle like logic
-  const handleToggleLike = async () => {
-    if (loadingLike) return;
-    setLoadingLike(true);
+  // Sync likes count from parent post data (but don't override during toggle)
+  useEffect(() => {
+    if (!isTogglingLike) {
+      setLikesCount(post._count?.likes || 0);
+    }
+  }, [post._count?.likes, isTogglingLike]);
 
-    setLiked((prev) => !prev);
-    setLikesCount((prev) => (liked ? prev - 1 : prev + 1));
+  // WebSocket listeners for real-time likes from OTHER users
+  useEffect(() => {
+    if (!socketService) return;
+
+    const unsubscribeCreated = socketService.on(
+      "like:created",
+      ({ like, post: updatedPost }) => {
+        if (updatedPost.id === post.id) {
+          console.log("🔔 Like added via socket:", like);
+
+          // Ignore if this is our own like (we already updated optimistically)
+          if (ignoreNextSocketEvent.current && like.userId === currentUserId) {
+            ignoreNextSocketEvent.current = false;
+            return;
+          }
+
+          // Update only if it's from another user
+          if (like.userId !== currentUserId) {
+            setLikesCount(updatedPost._count?.likes || 0);
+          }
+        }
+      }
+    );
+
+    const unsubscribeRemoved = socketService.on(
+      "like:removed",
+      ({ postId, userId }) => {
+        if (postId === post.id) {
+          console.log("🔔 Like removed via socket by user:", userId);
+
+          // Ignore if this is our own unlike (we already updated optimistically)
+          if (ignoreNextSocketEvent.current && userId === currentUserId) {
+            ignoreNextSocketEvent.current = false;
+            return;
+          }
+
+          // Update only if it's from another user
+          if (userId !== currentUserId) {
+            setLikesCount((prev) => Math.max(0, prev - 1));
+          }
+        }
+      }
+    );
+
+    return () => {
+      unsubscribeCreated();
+      unsubscribeRemoved();
+    };
+  }, [socketService, post.id, currentUserId]);
+
+  // Like button click handler
+  const handleLike = async () => {
+    if (isTogglingLike) return; // Prevent double clicks
+
+    setIsTogglingLike(true);
+    ignoreNextSocketEvent.current = true; // Ignore the socket event for our own action
+
+    // Store current state for rollback on error
+    const previousLiked = liked;
+    const previousCount = likesCount;
+
+    // Optimistic update
+    setLiked(!liked);
+    setLikesCount(liked ? Math.max(0, likesCount - 1) : likesCount + 1);
 
     try {
       const res = await toggleLike(post.id);
+      console.log("✅ Like toggled successfully:", res);
+
+      // Update state based on server response
       setLiked(res.liked);
-      // Optionally update likesCount from response
-      setLikesCount((prev) => (res.liked ? prev : prev));
     } catch (err) {
-      console.error(err);
-      setLiked((prev) => !prev);
-      setLikesCount((prev) => (liked ? prev + 1 : prev - 1));
+      console.error("❌ Error toggling like:", err);
+
+      // Rollback on error
+      setLiked(previousLiked);
+      setLikesCount(previousCount);
+      ignoreNextSocketEvent.current = false;
     } finally {
-      setLoadingLike(false);
+      setIsTogglingLike(false);
     }
   };
 
-  const handleMouseEnter = async () => {
-    const timeout = setTimeout(async () => {
-      if (likers.length === 0) {
-        try {
-          const data = await getLikers(post.id);
-          setLikers(data);
-        } catch (err) {
-          console.error(err);
-        }
-      }
-      setShowTooltip(true);
-    }, 300); // 300ms delay
-    setTooltipTimeout(timeout);
-  };
-
-  const handleMouseLeave = () => {
-    if (tooltipTimeout) {
-      clearTimeout(tooltipTimeout);
-      setTooltipTimeout(null);
-    }
-    setShowTooltip(false);
-  };
+  console.log(post.imageUrls?.[0]?.url, "Images");
 
   return (
-    <div className="w-full flex flex-col gap-5 mt-5 px-5 pb-10 relative">
-      <div className="bg-white rounded-2xl shadow-md p-5 flex flex-col gap-3 w-full max-w-xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <img
-            src={post.user.avatarUrl || userAvatarImg}
-            alt={post.user.displayName}
-            className="w-10 h-10 rounded-full object-cover"
-          />
-          <div>
-            <span className="font-semibold">{post.user.displayName}</span>
-            {post.user.username && (
-              <div className="text-gray-500 text-sm">@{post.user.username}</div>
-            )}
-          </div>
-        </div>
-
-        {/* Content */}
-        <p className="text-gray-700">{post.content}</p>
-
-        {/* Images */}
-        {post.imageUrls?.length > 0 && (
-          <img
-            src={post.imageUrls[0].url}
-            className="w-full h-52 object-cover rounded-xl"
-          />
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-3 text-gray-500 items-center relative">
-          {/* Like button */}
-          <div className="relative">
-            <button
-              className={`flex gap-1 items-center justify-between ${
-                liked ? "text-red-500" : ""
-              }`}
-              onClick={handleToggleLike}
-              disabled={loadingLike}
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
-            >
-              {liked ? <IoHeart size={26} /> : <CiHeart size={28} />}
-              <span>{likesCount}</span>
-            </button>
-
-            {/* Tooltip / Popover */}
-            <LikersTooltip likers={likers} show={showTooltip} />
-          </div>
-
-          {/* Comments button */}
-          <button
-            className="flex gap-1 items-center justify-between"
-            onClick={() => setShowComments((v) => !v)}
-          >
-            <FaRegComment size={20} />
-            <span>{post?._count?.comments}</span>
-          </button>
-
-          {/* Views */}
-          <button className="flex gap-1 items-center justify-between">
-            <MdOutlineRemoveRedEye size={28} />
-            <span>{post?._count?.views}</span>
-          </button>
-        </div>
-
-        {/* Comments */}
-        {showComments && <CommentList postId={post.id} />}
+    <div className="bg-white rounded-xl shadow-md p-4 space-y-3">
+      <div className="flex justify-between items-center">
+        <span className="font-semibold">{post.user.displayName}</span>
+        <button
+          onClick={() => onDelete(post.id)}
+          className="text-red-500 text-sm"
+        >
+          Delete
+        </button>
       </div>
+
+      <div>{post.content}</div>
+
+      {/* Images */}
+      {post.imageUrls && post.imageUrls.length > 0 && (
+        <Swiper spaceBetween={10} slidesPerView={1}>
+          {post.imageUrls?.map((url, idx) => (
+            <SwiperSlide key={idx}>
+              <img
+                src={url?.url}
+                className="w-full rounded-lg max-h-80 object-cover"
+                alt={`post-img-${idx}`}
+              />
+            </SwiperSlide>
+          ))}
+        </Swiper>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-4 mt-2">
+        <button
+          onClick={handleLike}
+          className="flex items-center gap-1"
+          disabled={isTogglingLike}
+        >
+          {liked ? <IoHeart color="red" size={24} /> : <CiHeart size={24} />}
+          <span>{likesCount}</span>
+        </button>
+
+        <button className="flex items-center gap-1">
+          <FaRegComment /> <span>{post._count?.comments || 0}</span>
+        </button>
+
+        <button className="flex items-center gap-1">
+          <MdOutlineRemoveRedEye /> <span>{post._count?.views || 0}</span>
+        </button>
+      </div>
+
+      <CommentList postId={post.id} />
     </div>
   );
-};
-
-export default PostCard;
+}
