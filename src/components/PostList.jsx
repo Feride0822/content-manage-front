@@ -58,14 +58,12 @@ export default function PostList({ currentUserId }) {
     };
   }, []);
 
-  // Socket events
   useEffect(() => {
     if (!socketService) return;
 
     const unsubscribeCreated = socketService.on("post:created", (newPost) => {
-      console.log("🟢 New post via socket", newPost);
+      console.log(" New post via socket", newPost);
       setPosts((prev) => {
-        // Avoid duplicates
         if (prev.some((p) => p.id === newPost.id)) return prev;
         return [newPost, ...prev];
       });
@@ -75,7 +73,7 @@ export default function PostList({ currentUserId }) {
     const unsubscribeUpdated = socketService.on(
       "post:updated",
       (updatedPost) => {
-        console.log("🔄 Post updated via socket", updatedPost);
+        console.log(" Post updated via socket", updatedPost);
         setPosts((prev) =>
           prev.map((p) => (p.id === updatedPost.id ? updatedPost : p))
         );
@@ -85,17 +83,16 @@ export default function PostList({ currentUserId }) {
     const unsubscribeDeleted = socketService.on(
       "post:deleted",
       ({ postId }) => {
-        console.log("🗑️ Post deleted via socket", postId);
+        console.log("Post deleted via socket", postId);
         setPosts((prev) => prev.filter((p) => p.id !== postId));
         setOffset((prev) => Math.max(0, prev - 1));
       }
     );
 
-    // Update like counts from WebSocket (for other users' likes)
     const unsubscribeLikeCreated = socketService.on(
       "like:created",
       ({ like, post: updatedPost }) => {
-        console.log("❤️ Like added via socket", like);
+        console.log(" Like added via socket", like);
         setPosts((prev) =>
           prev.map((p) => {
             if (p.id === updatedPost.id) {
@@ -117,7 +114,7 @@ export default function PostList({ currentUserId }) {
     const unsubscribeLikeRemoved = socketService.on(
       "like:removed",
       ({ postId }) => {
-        console.log("💔 Like removed via socket", postId);
+        console.log(" Like removed via socket", postId);
         setPosts((prev) =>
           prev.map((p) => {
             if (p.id === postId) {
@@ -146,7 +143,6 @@ export default function PostList({ currentUserId }) {
 
   const handlePostCreated = (newPost) => {
     setPosts((prev) => {
-      // Avoid duplicates
       if (prev.some((p) => p.id === newPost.id)) return prev;
       return [newPost, ...prev];
     });

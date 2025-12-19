@@ -15,7 +15,6 @@ const NotificationToast = () => {
     const latest = notifications[notifications.length - 1];
     const id = Date.now() + Math.random();
 
-    // Build icon based on type
     let icon = null;
     if (latest.type === "NEW_LIKE") icon = <CiHeart size={30} color="red" />;
     if (latest.type === "NEW_COMMENT")
@@ -23,14 +22,11 @@ const NotificationToast = () => {
     if (latest.type === "NEW_FOLLOW")
       icon = <SlUserFollow size={30} color="blue" />;
 
-    // Build message text
     const text = latest.message;
 
-    // Avatar fallback
     const avatar =
       latest.data?.user?.avatarUrl || "https://i.pravatar.cc/150?img=32";
 
-    // Timestamp
     const time = new Date().toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
@@ -41,7 +37,6 @@ const NotificationToast = () => {
       { ...latest, id, icon, text, avatar, time },
     ]);
 
-    // Auto-remove after 5 seconds
     const timeout = setTimeout(() => {
       setVisibleNotifications((prev) => prev.filter((n) => n.id !== id));
     }, 5000);

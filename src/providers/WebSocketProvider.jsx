@@ -53,7 +53,6 @@ export const WebSocketProvider = ({ children }) => {
       console.error("Socket connect error:", err)
     );
 
-    // Listen for notifications
     socket.on("notification", (data) => {
       console.log("🔔 Notification received:", data);
       setNotifications((prev) => [...prev, data]);

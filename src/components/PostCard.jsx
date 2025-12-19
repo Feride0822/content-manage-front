@@ -16,7 +16,6 @@ export default function PostCard({ post, onDelete, currentUserId }) {
   const [isTogglingLike, setIsTogglingLike] = useState(false);
   const ignoreNextSocketEvent = useRef(false);
 
-  // Initial fetch of like status
   useEffect(() => {
     const fetchLiked = async () => {
       try {
@@ -29,14 +28,12 @@ export default function PostCard({ post, onDelete, currentUserId }) {
     fetchLiked();
   }, [post.id]);
 
-  // Sync likes count from parent post data (but don't override during toggle)
   useEffect(() => {
     if (!isTogglingLike) {
       setLikesCount(post._count?.likes || 0);
     }
   }, [post._count?.likes, isTogglingLike]);
 
-  // WebSocket listeners for real-time likes from OTHER users
   useEffect(() => {
     if (!socketService) return;
 
@@ -46,13 +43,11 @@ export default function PostCard({ post, onDelete, currentUserId }) {
         if (updatedPost.id === post.id) {
           console.log("🔔 Like added via socket:", like);
 
-          // Ignore if this is our own like (we already updated optimistically)
           if (ignoreNextSocketEvent.current && like.userId === currentUserId) {
             ignoreNextSocketEvent.current = false;
             return;
           }
 
-          // Update only if it's from another user
           if (like.userId !== currentUserId) {
             setLikesCount(updatedPost._count?.likes || 0);
           }
@@ -66,13 +61,11 @@ export default function PostCard({ post, onDelete, currentUserId }) {
         if (postId === post.id) {
           console.log("🔔 Like removed via socket by user:", userId);
 
-          // Ignore if this is our own unlike (we already updated optimistically)
           if (ignoreNextSocketEvent.current && userId === currentUserId) {
             ignoreNextSocketEvent.current = false;
             return;
           }
 
-          // Update only if it's from another user
           if (userId !== currentUserId) {
             setLikesCount((prev) => Math.max(0, prev - 1));
           }
@@ -86,18 +79,15 @@ export default function PostCard({ post, onDelete, currentUserId }) {
     };
   }, [socketService, post.id, currentUserId]);
 
-  // Like button click handler
   const handleLike = async () => {
-    if (isTogglingLike) return; // Prevent double clicks
+    if (isTogglingLike) return;
 
     setIsTogglingLike(true);
-    ignoreNextSocketEvent.current = true; // Ignore the socket event for our own action
+    ignoreNextSocketEvent.current = true; 
 
-    // Store current state for rollback on error
     const previousLiked = liked;
     const previousCount = likesCount;
 
-    // Optimistic update
     setLiked(!liked);
     setLikesCount(liked ? Math.max(0, likesCount - 1) : likesCount + 1);
 
@@ -105,12 +95,10 @@ export default function PostCard({ post, onDelete, currentUserId }) {
       const res = await toggleLike(post.id);
       console.log("✅ Like toggled successfully:", res);
 
-      // Update state based on server response
       setLiked(res.liked);
     } catch (err) {
       console.error("❌ Error toggling like:", err);
 
-      // Rollback on error
       setLiked(previousLiked);
       setLikesCount(previousCount);
       ignoreNextSocketEvent.current = false;
@@ -119,7 +107,6 @@ export default function PostCard({ post, onDelete, currentUserId }) {
     }
   };
 
-  console.log(post.imageUrls?.[0]?.url, "Images");
 
   return (
     <div className="bg-white rounded-xl shadow-md p-4 space-y-3">
