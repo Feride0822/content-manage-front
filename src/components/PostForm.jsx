@@ -125,38 +125,14 @@ export default function PostForm({
       {/* Previews */}
       {previews.length > 0 && (
         <div className="flex gap-2 overflow-x-auto mt-2">
-          {existingImages.map((url) => (
-            <div key={url} className="relative">
-              <img
-                src={url}
-                alt="Existing"
-                className="h-28 w-28 object-cover rounded-lg shrink-0"
-              />
-              <button
-                type="button"
-                onClick={() => handleRemoveExistingImage(url)}
-                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-          {newFiles.map((file, i) => (
-            <div key={i} className="relative">
-              <img
-                src={URL.createObjectURL(file)}
-                multiple
-                alt={`Preview ${i + 1}`}
-                className="h-28 w-28 object-cover rounded-lg shrink-0"
-              />
-              <button
-                type="button"
-                onClick={() => handleRemoveNewFile(file)}
-                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center"
-              >
-                ×
-              </button>
-            </div>
+          {previews.map((src, i) => (
+            <img
+              key={i}
+              multiple
+              src={src}
+              alt={`Preview ${i + 1}`}
+              className="h-28 w-28 object-cover rounded-lg shrink-0"
+            />
           ))}
         </div>
       )}
