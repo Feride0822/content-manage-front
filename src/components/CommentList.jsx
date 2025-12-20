@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { getComments } from "../api/comment";
 
 export default function CommentList({ postId }) {
-  const { user } = useAuth(); // must contain user.id
+  const { user } = useAuth(); // must contain user.id 
   const currentUserId = user?.id;
   console.log(user, 'User coming from useAuth');
 

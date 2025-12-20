@@ -15,7 +15,7 @@ export default function NotFound() {
           changed, or is temporarily unavailable.
         </p>
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/")} //navigate to home
           className="px-6 py-3 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-colors cursor-pointer"
         >
           Go Back Home
