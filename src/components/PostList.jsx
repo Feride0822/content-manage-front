@@ -15,21 +15,19 @@ export default function PostList({ currentUserId }) {
 
   const { socketService } = useWebSocket();
 
-  const { user } = useAuth(); // current logged-in user
-
-  const [editingPost, setEditingPost] = useState(null); // currently editing post
+  const [editingPost, setEditingPost] = useState(null);
 
   // Fetch posts from API
-  const fetchPosts = async () => {
+  const fetchPosts = async (reset = false) => {
     if (!hasMore.current || isFetching.current) return;
     isFetching.current = true;
     setLoading(true);
 
     try {
-      const res = await getPosts({ limit, offset });
+      const res = await getPosts({ limit, offset: reset ? 0 : offset });
       if (res.data.length < limit) hasMore.current = false;
-      setPosts((prev) => [...prev, ...res.data]);
-      setOffset((prev) => prev + limit);
+      setPosts((prev) => (reset ? res.data : [...prev, ...res.data]));
+      setOffset(reset ? res?.data?.length : offset + limit);
     } catch (err) {
       console.error(err);
       setError(err.message || "Error fetching posts");
@@ -64,41 +62,92 @@ export default function PostList({ currentUserId }) {
     };
   }, []);
 
+  // Socket event listeners
   useEffect(() => {
     if (!socketService) return;
 
+    // Post created
     const unsubscribeCreated = socketService.on("post:created", (newPost) => {
-      console.log(" New post via socket", newPost);
+      console.log("📝 New post via socket", newPost);
+
       setPosts((prev) => {
-        if (prev.some((p) => p.id === newPost.id)) return prev;
-        return [newPost, ...prev];
+        const existingPost = prev.find((p) => p.id === newPost.id);
+
+        if (existingPost) {
+          return prev.map((p) => {
+            if (p.id === newPost.id) {
+              return {
+                ...p,
+                ...newPost,
+                imageUrls:
+                  newPost.imageUrls?.length > 0
+                    ? newPost.imageUrls
+                    : p.imageUrls || [],
+                _count: newPost._count ||
+                  p._count || { likes: 0, comments: 0, views: 0 },
+              };
+            }
+            return p;
+          });
+        }
+
+        const normalizedPost = {
+          ...newPost,
+          imageUrls: newPost.imageUrls || [],
+          _count: newPost._count || { likes: 0, comments: 0, views: 0 },
+          user: newPost.user || {},
+          comments: newPost.comments || [],
+          likes: newPost.likes || [],
+          views: newPost.views || [],
+        };
+
+        return [normalizedPost, ...prev];
       });
+
       setOffset((prev) => prev + 1);
     });
 
+    // Post updated
     const unsubscribeUpdated = socketService.on(
       "post:updated",
       (updatedPost) => {
-        console.log(" Post updated via socket", updatedPost);
+        console.log("✏️ Post updated via socket", updatedPost);
+
         setPosts((prev) =>
-          prev.map((p) => (p.id === updatedPost.id ? updatedPost : p))
+          prev.map((p) => {
+            if (p.id === updatedPost.id) {
+              return {
+                ...p,
+                ...updatedPost,
+                imageUrls:
+                  updatedPost.imageUrls?.length > 0
+                    ? updatedPost.imageUrls
+                    : p.imageUrls || [],
+                _count: updatedPost._count ||
+                  p._count || { likes: 0, comments: 0, views: 0 },
+              };
+            }
+            return p;
+          })
         );
       }
     );
 
+    // Post deleted
     const unsubscribeDeleted = socketService.on(
       "post:deleted",
       ({ postId }) => {
-        console.log("Post deleted via socket", postId);
+        console.log("🗑️ Post deleted via socket", postId);
         setPosts((prev) => prev.filter((p) => p.id !== postId));
         setOffset((prev) => Math.max(0, prev - 1));
       }
     );
 
+    // Like created
     const unsubscribeLikeCreated = socketService.on(
       "like:created",
       ({ like, post: updatedPost }) => {
-        console.log(" Like added via socket", like);
+        console.log("❤️ Like added via socket", like);
         setPosts((prev) =>
           prev.map((p) => {
             if (p.id === updatedPost.id) {
@@ -117,10 +166,11 @@ export default function PostList({ currentUserId }) {
       }
     );
 
+    // Like removed
     const unsubscribeLikeRemoved = socketService.on(
       "like:removed",
       ({ postId }) => {
-        console.log(" Like removed via socket", postId);
+        console.log("💔 Like removed via socket", postId);
         setPosts((prev) =>
           prev.map((p) => {
             if (p.id === postId) {
@@ -138,59 +188,19 @@ export default function PostList({ currentUserId }) {
       }
     );
 
-    return () => {
-      unsubscribeCreated();
-      unsubscribeUpdated();
-      unsubscribeDeleted();
-      unsubscribeLikeCreated();
-      unsubscribeLikeRemoved();
-    };
-  }, [socketService]);
-
-  useEffect(() => {
-    if (!socketService) return;
-
-    const unsubscribeCreated = socketService.on("post:created", (newPost) => {
-      console.log(" New post via socket", newPost);
-      setPosts((prev) => {
-        if (prev.some((p) => p.id === newPost.id)) return prev;
-        return [newPost, ...prev];
-      });
-      setOffset((prev) => prev + 1);
-    });
-
-    const unsubscribeUpdated = socketService.on(
-      "post:updated",
-      (updatedPost) => {
-        console.log(" Post updated via socket", updatedPost);
-        setPosts((prev) =>
-          prev.map((p) => (p.id === updatedPost.id ? updatedPost : p))
-        );
-      }
-    );
-
-    const unsubscribeDeleted = socketService.on(
-      "post:deleted",
-      ({ postId }) => {
-        console.log("Post deleted via socket", postId);
-        setPosts((prev) => prev.filter((p) => p.id !== postId));
-        setOffset((prev) => Math.max(0, prev - 1));
-      }
-    );
-
-    const unsubscribeLikeCreated = socketService.on(
-      "like:created",
-      ({ like, post: updatedPost }) => {
-        console.log(" Like added via socket", like);
+    // Comment created
+    const unsubscribeCommentCreated = socketService.on(
+      "comment:created",
+      (comment) => {
+        console.log("💬 Comment added via socket", comment);
         setPosts((prev) =>
           prev.map((p) => {
-            if (p.id === updatedPost.id) {
+            if (p.id === comment.postId) {
               return {
                 ...p,
                 _count: {
                   ...p._count,
-                  likes:
-                    updatedPost._count?.likes || (p._count?.likes || 0) + 1,
+                  comments: (p._count?.comments || 0) + 1,
                 },
               };
             }
@@ -200,10 +210,11 @@ export default function PostList({ currentUserId }) {
       }
     );
 
-    const unsubscribeLikeRemoved = socketService.on(
-      "like:removed",
-      ({ postId }) => {
-        console.log(" Like removed via socket", postId);
+    // Comment deleted
+    const unsubscribeCommentDeleted = socketService.on(
+      "comment:deleted",
+      ({ commentId, postId }) => {
+        console.log("🗑️ Comment deleted via socket", commentId);
         setPosts((prev) =>
           prev.map((p) => {
             if (p.id === postId) {
@@ -211,7 +222,7 @@ export default function PostList({ currentUserId }) {
                 ...p,
                 _count: {
                   ...p._count,
-                  likes: Math.max(0, (p._count?.likes || 0) - 1),
+                  comments: Math.max(0, (p._count?.comments || 0) - 1),
                 },
               };
             }
@@ -221,25 +232,71 @@ export default function PostList({ currentUserId }) {
       }
     );
 
+    // View created
+    const unsubscribeViewCreated = socketService.on(
+      "view:created",
+      ({ view, postId }) => {
+        console.log("👁️ View added via socket", view, "for post", postId);
+        setPosts((prev) =>
+          prev.map((p) => {
+            if (p.id === postId) {
+              console.log(
+                `📊 Updating view count for post ${postId}: ${
+                  p._count?.views || 0
+                } → ${(p._count?.views || 0) + 1}`
+              );
+              return {
+                ...p,
+                _count: {
+                  ...p._count,
+                  views: (p._count?.views || 0) + 1,
+                },
+              };
+            }
+            return p;
+          })
+        );
+      }
+    );
+
+    // Cleanup all listeners
     return () => {
       unsubscribeCreated();
       unsubscribeUpdated();
       unsubscribeDeleted();
       unsubscribeLikeCreated();
       unsubscribeLikeRemoved();
+      unsubscribeCommentCreated();
+      unsubscribeCommentDeleted();
+      unsubscribeViewCreated();
     };
   }, [socketService]);
 
   // Handle new post creation
   const handlePostCreated = (newPost) => {
+    const normalizedPost = {
+      ...newPost,
+      imageUrls: newPost.imageUrls || [],
+      _count: newPost._count || { likes: 0, comments: 0, views: 0 },
+      user: newPost.user || {},
+      comments: newPost.comments || [],
+      likes: newPost.likes || [],
+      views: newPost.views || [],
+    };
+
     setPosts((prev) => {
-      if (prev.some((p) => p.id === newPost.id)) return prev;
-      return [newPost, ...prev];
+      if (prev.some((p) => p.id === normalizedPost.id)) {
+        console.log("Post already exists, updating instead");
+        return prev.map((p) =>
+          p.id === normalizedPost.id ? normalizedPost : p
+        );
+      }
+      return [normalizedPost, ...prev];
     });
     setOffset((prev) => prev + 1);
-    fetchPosts();
   };
 
+  // Handle post deletion
   const handleDeleted = (id) => {
     setPosts((prev) => prev.filter((p) => p.id !== id));
     setOffset((prev) => Math.max(0, prev - 1));
@@ -254,8 +311,14 @@ export default function PostList({ currentUserId }) {
 
   // Handle post update
   const handlePostUpdated = (updatedPost) => {
+    const normalizedPost = {
+      ...updatedPost,
+      imageUrls: updatedPost.imageUrls || [],
+      _count: updatedPost._count || { likes: 0, comments: 0, views: 0 },
+    };
+
     setPosts((prev) =>
-      prev.map((p) => (p.id === updatedPost.id ? updatedPost : p))
+      prev.map((p) => (p.id === normalizedPost.id ? normalizedPost : p))
     );
     setEditingPost(null);
   };
@@ -273,9 +336,9 @@ export default function PostList({ currentUserId }) {
 
       <PostForm onPostCreated={handlePostCreated} />
 
-      {posts.map((post) => (
+      {posts.map((post, index) => (
         <PostCard
-          key={post.id}
+          key={post?.id}
           post={post}
           onDelete={handleDeleted}
           currentUserId={currentUserId}
@@ -283,6 +346,10 @@ export default function PostList({ currentUserId }) {
       ))}
 
       {loading && <p className="text-center text-gray-500">Loading...</p>}
+
+      {!loading && posts.length === 0 && (
+        <p className="text-center text-gray-500">No posts yet. Create one!</p>
+      )}
     </div>
   );
 }

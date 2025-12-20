@@ -1,160 +1,162 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { CiHeart } from "react-icons/ci";
 import { IoHeart } from "react-icons/io5";
 import { FaRegComment } from "react-icons/fa";
 import { MdOutlineRemoveRedEye } from "react-icons/md";
 import { toggleLike, checkLiked } from "../api/like";
+import { createView, checkViewed } from "../api/view";
 import CommentList from "./CommentList";
-import { useWebSocket } from "../providers/WebSocketProvider";
 import { Swiper, SwiperSlide } from "swiper/react";
 import "swiper/css";
 
 export default function PostCard({ post, onDelete, currentUserId }) {
-  const { socketService } = useWebSocket();
   const [liked, setLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(post._count?.likes || 0);
-  const [isTogglingLike, setIsTogglingLike] = useState(false);
-  const ignoreNextSocketEvent = useRef(false);
+  const [loading, setLoading] = useState(false);
+  const viewChecked = useRef(false);
 
+  post.imageUrls = post.imageUrls || [];
+  post._count = post._count || { likes: 0, comments: 0, views: 0 };
+  // Check if user liked
   useEffect(() => {
+    let mounted = true;
+
     const fetchLiked = async () => {
       try {
         const res = await checkLiked(post.id);
-        setLiked(res.liked);
-      } catch (err) {
-        console.error("Error checking liked status:", err);
+        if (mounted) setLiked(res.liked);
+      } catch (e) {
+        console.error(e);
       }
     };
+
     fetchLiked();
+    return () => (mounted = false);
   }, [post.id]);
 
   useEffect(() => {
-    if (!isTogglingLike) {
-      setLikesCount(post._count?.likes || 0);
-    }
-  }, [post._count?.likes, isTogglingLike]);
+    if (viewChecked.current) return;
 
-  useEffect(() => {
-    if (!socketService) return;
+    let mounted = true;
 
-    const unsubscribeCreated = socketService.on(
-      "like:created",
-      ({ like, post: updatedPost }) => {
-        if (updatedPost.id === post.id) {
-          console.log("🔔 Like added via socket:", like);
+    const handleView = async () => {
+      try {
+        const viewedPosts = JSON.parse(
+          localStorage.getItem("viewedPosts") || "[]"
+        );
 
-          if (ignoreNextSocketEvent.current && like.userId === currentUserId) {
-            ignoreNextSocketEvent.current = false;
-            return;
-          }
+        if (viewedPosts.includes(post.id)) {
+          console.log(`Already viewed post ${post.id} (from localStorage)`);
+          viewChecked.current = true;
+          return;
+        }
 
-          if (like.userId !== currentUserId) {
-            setLikesCount(updatedPost._count?.likes || 0);
+        // Check backend
+        const res = await checkViewed(post.id);
+
+        if (mounted) {
+          if (!res.viewed) {
+            console.log(`👁️ Creating view for post ${post.id}`);
+            await createView(post.id);
+
+            // Save to localStorage
+            viewedPosts.push(post.id);
+            localStorage.setItem("viewedPosts", JSON.stringify(viewedPosts));
+
+            viewChecked.current = true;
+          } else {
+            console.log(`Already viewed post ${post.id} (from backend)`);
+
+            // Save to localStorage for future
+            if (!viewedPosts.includes(post.id)) {
+              viewedPosts.push(post.id);
+              localStorage.setItem("viewedPosts", JSON.stringify(viewedPosts));
+            }
+
+            viewChecked.current = true;
           }
         }
+      } catch (e) {
+        console.error(" Error handling view:", e);
       }
-    );
-
-    const unsubscribeRemoved = socketService.on(
-      "like:removed",
-      ({ postId, userId }) => {
-        if (postId === post.id) {
-          console.log("🔔 Like removed via socket by user:", userId);
-
-          if (ignoreNextSocketEvent.current && userId === currentUserId) {
-            ignoreNextSocketEvent.current = false;
-            return;
-          }
-
-          if (userId !== currentUserId) {
-            setLikesCount((prev) => Math.max(0, prev - 1));
-          }
-        }
-      }
-    );
-
-    return () => {
-      unsubscribeCreated();
-      unsubscribeRemoved();
     };
-  }, [socketService, post.id, currentUserId]);
+
+    handleView();
+    return () => {
+      mounted = false;
+    };
+  }, [post.id]);
 
   const handleLike = async () => {
-    if (isTogglingLike) return;
+    if (loading) return;
+    setLoading(true);
 
-    setIsTogglingLike(true);
-    ignoreNextSocketEvent.current = true; 
-
-    const previousLiked = liked;
-    const previousCount = likesCount;
-
-    setLiked(!liked);
-    setLikesCount(liked ? Math.max(0, likesCount - 1) : likesCount + 1);
+    // optimistic icon toggle ONLY
+    setLiked((prev) => !prev);
 
     try {
       const res = await toggleLike(post.id);
-      console.log("✅ Like toggled successfully:", res);
-
-      setLiked(res.liked);
-    } catch (err) {
-      console.error("❌ Error toggling like:", err);
-
-      setLiked(previousLiked);
-      setLikesCount(previousCount);
-      ignoreNextSocketEvent.current = false;
+      setLiked(res.liked); // backend truth
+    } catch (e) {
+      console.error(e);
+      setLiked((prev) => !prev); // rollback
     } finally {
-      setIsTogglingLike(false);
+      setLoading(false);
     }
   };
 
-
   return (
     <div className="bg-white rounded-xl shadow-md p-4 space-y-3">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <span className="font-semibold">{post.user.displayName}</span>
         <button
           onClick={() => onDelete(post.id)}
-          className="text-red-500 text-sm"
+          className="text-red-500 text-sm hover:text-red-700"
         >
           Delete
         </button>
       </div>
 
-      <div>{post.content}</div>
+      {/* Content */}
+      <div className="text-gray-800">{post.content}</div>
 
       {/* Images */}
-      {post.imageUrls && post.imageUrls.length > 0 && (
+      {Array.isArray(post.imageUrls) && post.imageUrls.length > 0 && (
         <Swiper spaceBetween={10} slidesPerView={1}>
-          {post.imageUrls?.map((url, idx) => (
+          {post.imageUrls.map((img, idx) => (
             <SwiperSlide key={idx}>
               <img
-                src={url?.url}
+                src={img.url}
                 className="w-full rounded-lg max-h-80 object-cover"
-                alt={`post-img-${idx}`}
+                alt=""
               />
             </SwiperSlide>
           ))}
         </Swiper>
       )}
 
+      {JSON.stringify(post)}
+
       {/* Actions */}
-      <div className="flex items-center gap-4 mt-2">
+      <div className="flex items-center gap-4 mt-2 text-gray-600">
         <button
           onClick={handleLike}
-          className="flex items-center gap-1"
-          disabled={isTogglingLike}
+          disabled={loading}
+          className="flex items-center gap-1 hover:text-red-500 transition-colors"
         >
-          {liked ? <IoHeart color="red" size={24} /> : <CiHeart size={24} />}
-          <span>{likesCount}</span>
+          {liked ? <IoHeart size={22} color="red" /> : <CiHeart size={22} />}
+          <span className="text-sm">{post._count?.likes || 0}</span>
         </button>
 
-        <button className="flex items-center gap-1">
-          <FaRegComment /> <span>{post._count?.comments || 0}</span>
-        </button>
+        <div className="flex items-center gap-1">
+          <FaRegComment size={20} />
+          <span className="text-sm">{post._count?.comments || 0}</span>
+        </div>
 
-        <button className="flex items-center gap-1">
-          <MdOutlineRemoveRedEye /> <span>{post._count?.views || 0}</span>
-        </button>
+        <div className="flex items-center gap-1">
+          <MdOutlineRemoveRedEye size={22} />
+          <span className="text-sm">{post._count?.views || 0}</span>
+        </div>
       </div>
 
       <CommentList postId={post.id} />

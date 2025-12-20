@@ -1,4 +1,3 @@
-// services/socketService.js
 import { io } from "socket.io-client";
 
 class SocketService {
@@ -14,17 +13,30 @@ class SocketService {
     });
 
     this.socket.on("connect", () => {
-      console.log("✅ socket connected");
+      console.log("✅ Socket connected with ID:", this.socket.id);
     });
 
+    this.socket.on("disconnect", () => {
+      console.log("❌ Socket disconnected");
+    });
+
+    // Listen to all socket events and forward to internal listeners
     [
+      "post:created",
+      "post:updated",
+      "post:deleted",
       "like:created",
       "like:removed",
       "comment:created",
       "comment:deleted",
-      "view:created",
+      "comment:typing",
+      "comment:stop-typing",
+      "view:created", // ← Make sure this is here!
     ].forEach((event) => {
-      this.socket.on(event, (data) => this.emit(event, data));
+      this.socket.on(event, (data) => {
+        console.log(`🔔 Socket event received: ${event}`, data);
+        this.emit(event, data);
+      });
     });
   }
 
@@ -34,21 +46,45 @@ class SocketService {
     }
     this.listeners.get(event).push(cb);
 
+    // Return unsubscribe function
     return () => {
       const arr = this.listeners.get(event);
+      if (arr) {
+        this.listeners.set(
+          event,
+          arr.filter((fn) => fn !== cb)
+        );
+      }
+    };
+  }
+
+  off(event, cb) {
+    const arr = this.listeners.get(event);
+    if (arr) {
       this.listeners.set(
         event,
         arr.filter((fn) => fn !== cb)
       );
-    };
+    }
   }
 
   emit(event, data) {
-    this.listeners.get(event)?.forEach((cb) => cb(data));
+    const callbacks = this.listeners.get(event);
+    if (callbacks) {
+      callbacks.forEach((cb) => cb(data));
+    }
   }
 
   sendView(postId) {
     this.socket?.emit("post:view", { postId });
+  }
+
+  sendTyping(postId, displayName) {
+    this.socket?.emit("comment:typing", { postId, displayName });
+  }
+
+  sendStopTyping(postId, displayName) {
+    this.socket?.emit("comment:stop-typing", { postId, displayName });
   }
 
   disconnect() {
