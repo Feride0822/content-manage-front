@@ -1,307 +1,209 @@
-import { useState } from "react";
-import { CiHeart } from "react-icons/ci";
-import { FaRegComment } from "react-icons/fa";
-import { MdOutlineRemoveRedEye } from "react-icons/md";
+import { useState, useEffect } from "react";
+import { getMe, getUserById } from "../api/user";
+import { getFollowerCount, getFollowingCount } from "../api/follow";
+import { useWebSocket } from "../providers/WebSocketProvider";
+import avatarImg from "/user.jpeg";
+import FollowButton from "../components/FollowButton";
+import { useParams } from "react-router-dom";
 
-export default function Profile() {
-  // Profile modal state
-  const [open, setOpen] = useState(false);
+export default function UserProfile() {
+  const { userId } = useParams();
+  const [currentUser, setCurrentUser] = useState();
+  const getCurrentUser = async () => {
+    const res = await getMe();
+    console.log(res, "Current user");
+    setCurrentUser(res);
+  };
 
-  // Profile fields
-  const [name, setName] = useState("Your Name");
-  const [followers] = useState(120);
-  const [following] = useState(80);
+  useEffect(() => {
+    getCurrentUser();
+  }, []);
 
-  // Profile image state
-  const [profileImg, setProfileImg] = useState("https://via.placeholder.com/80");
+  const [user, setUser] = useState(null);
+  const [stats, setStats] = useState({
+    followers: 0,
+    following: 0,
+    posts: 0,
+  });
+  const [loading, setLoading] = useState(false);
+  const { socketService } = useWebSocket();
 
-  // Handle profile image change
-  const handleImgChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setProfileImg(URL.createObjectURL(file));
+  const isOwnProfile = currentUser?.id === userId;
+
+  // Fetch user data and stats
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
+        const userData = await getUserById(userId);
+        const followerData = await getFollowerCount(userId);
+        const followingData = await getFollowingCount(userId);
+
+        console.log(userData, "User data from current");
+        setUser(userData);
+        setStats({
+          followers: followerData.followers,
+          following: followingData.following,
+          posts: userData._count?.posts || 0,
+        });
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (userId) {
+      fetchUserData();
     }
+  }, [userId]);
+
+  // Listen for follow/unfollow events
+  useEffect(() => {
+    if (!socketService || !userId) return;
+
+    console.log(
+      "🔌 [UserProfile] Setting up socket listeners for userId:",
+      userId
+    );
+
+    // ✅ FIXED: Changed from "follow:created" to "follower:created"
+    const unsubscribeFollow = socketService.on("follower:created", (data) => {
+      console.log("🔔 [UserProfile] follower:created event:", data);
+
+      // If someone followed this user, increment followers
+      if (data.followedId === userId) {
+        console.log(
+          `✅ [UserProfile] Someone followed this user (${userId}), incrementing followers`
+        );
+        setStats((prev) => ({
+          ...prev,
+          followers: prev.followers + 1,
+        }));
+      }
+      // If this user followed someone, increment following
+      if (data.followerId === userId) {
+        console.log(
+          `✅ [UserProfile] This user (${userId}) followed someone, incrementing following`
+        );
+        setStats((prev) => ({
+          ...prev,
+          following: prev.following + 1,
+        }));
+      }
+    });
+
+    const unsubscribeUnfollow = socketService.on("follow:removed", (data) => {
+      console.log("🔕 [UserProfile] follow:removed event:", data);
+
+      // If someone unfollowed this user, decrement followers
+      if (data.followedId === userId) {
+        console.log(
+          `✅ [UserProfile] Someone unfollowed this user (${userId}), decrementing followers`
+        );
+        setStats((prev) => ({
+          ...prev,
+          followers: Math.max(0, prev.followers - 1),
+        }));
+      }
+      // If this user unfollowed someone, decrement following
+      if (data.followerId === userId) {
+        console.log(
+          `✅ [UserProfile] This user (${userId}) unfollowed someone, decrementing following`
+        );
+        setStats((prev) => ({
+          ...prev,
+          following: Math.max(0, prev.following - 1),
+        }));
+      }
+    });
+
+    return () => {
+      console.log("🔌 [UserProfile] Cleaning up socket listeners");
+      unsubscribeFollow();
+      unsubscribeUnfollow();
+    };
+  }, [socketService, userId]);
+
+  const handleFollowChange = (isFollowing) => {
+    console.log(
+      "🔄 [UserProfile] handleFollowChange called, isFollowing:",
+      isFollowing
+    );
+    // DON'T update follower count here!
+    // The socket event will handle it
+    // This callback is just for notification purposes
   };
 
-  // =============================
-  // POST STATES
-  // =============================
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [editPostModal, setEditPostModal] = useState(false);
-  const [postText, setPostText] = useState(
-    "This is a demo post text. User can write anything here."
-  );
+  if (loading) {
+    return (
+      <div className="w-full max-w-2xl mx-auto mt-10 text-center">
+        <p className="text-gray-500">Loading profile...</p>
+      </div>
+    );
+  }
 
-  // LIKE STATE
-  const [liked, setLiked] = useState(false);
-
-  // COMMENT MODAL
-  const [commentOpen, setCommentOpen] = useState(false);
-  const [commentText, setCommentText] = useState("");
-
-  // VIEW MODAL
-  const [viewOpen, setViewOpen] = useState(false);
-
-  const deletePost = () => {
-    alert("Post deleted!");
-    setMenuOpen(false);
-  };
+  if (!user) {
+    return (
+      <div className="w-full max-w-2xl mx-auto mt-10 text-center">
+        <p className="text-red-500">User not found</p>
+      </div>
+    );
+  }
 
   return (
-    <>
-      {/* PROFILE SECTION */}
-      <div className="w-1/2 mx-auto flex flex-col bg-white p-6 rounded-xl shadow-md">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <img
-              src={profileImg}
-              alt="profile"
-              className="w-20 h-20 rounded-full object-cover"
-            />
+    <div className="w-full max-w-2xl mx-auto mt-10">
+      {/* Profile Header */}
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <div className="flex items-start gap-6">
+          {/* Avatar */}
+          <img
+            src={user.avatarUrl || avatarImg}
+            alt={user.displayName || user.pseudoname}
+            className="w-24 h-24 rounded-full object-cover border-2"
+          />
 
-            <div>
-              <h2 className="text-xl font-semibold text-gray-800">{name}</h2>
-
-              <div className="flex gap-6 text-gray-600 text-sm mt-1">
-                <p>
-                  <span className="font-semibold">{followers}</span> Followers
-                </p>
-                <p>
-                  <span className="font-semibold">{following}</span> Following
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setOpen(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-          >
-            Edit Profile
-          </button>
-        </div>
-
-        <p className="mt-5 font-semibold">Posts</p>
-
-        {/* POST CARD */}
-        <div className="w-full flex flex-col gap-5 mt-4 px-5 pb-10">
-          <div className="bg-white rounded-2xl shadow-md p-5 flex flex-col gap-3">
-            {/* POST HEADER */}
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <img
-                  src="https://i.pravatar.cc/40"
-                  alt="profile"
-                  className="w-10 h-10 rounded-full"
+          {/* User Info */}
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-2">
+              <h1 className="text-2xl font-bold">
+                {user.displayName || user.pseudoname}
+              </h1>
+              {!isOwnProfile && (
+                <FollowButton
+                  userId={userId}
+                  onFollowChange={handleFollowChange}
                 />
-                <span className="font-semibold">John Doe</span>
-              </div>
-
-              {/* MENU */}
-              <div className="relative">
-                <button
-                  onClick={() => setMenuOpen(!menuOpen)}
-                  className="text-gray-500 hover:text-gray-950 text-3xl"
-                >
-                  ⋮
-                </button>
-
-                {menuOpen && (
-                  <div className="absolute right-0 mt-2 w-32 bg-white shadow-lg rounded-lg py-2 border z-50">
-                    <button
-                      onClick={() => {
-                        setEditPostModal(true);
-                        setMenuOpen(false);
-                      }}
-                      className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100"
-                    >
-                      Edit
-                    </button>
-
-                    <button
-                      onClick={deletePost}
-                      className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
-            {/* POST TEXT */}
-            <p className="text-gray-700">{postText}</p>
+            {user.username && (
+              <p className="text-gray-500 mb-3">@{user.username}</p>
+            )}
 
-            {/* POST IMAGE */}
-            <img
-              src="https://picsum.photos/400/200"
-              alt="post"
-              className="w-full rounded-2xl object-cover cursor-pointer"
-              onClick={() => setViewOpen(true)}
-            />
-
-            {/* ACTIONS */}
-            <div className="flex w-1/3 justify-around items-center text-gray-500 mt-2">
-              {/* LIKE BTN */}
-              <CiHeart
-                size={30}
-                className={`cursor-pointer transition ${
-                  liked ? "text-red-600 scale-110" : ""
-                }`}
-                onClick={() => setLiked(!liked)}
-              />
-
-              {/* COMMENT BTN */}
-              <FaRegComment
-                size={25}
-                className="cursor-pointer"
-                onClick={() => setCommentOpen(true)}
-              />
-
-              {/* VIEW BTN */}
-              <MdOutlineRemoveRedEye
-                size={30}
-                className="cursor-pointer"
-                onClick={() => setViewOpen(true)}
-              />
+            {/* Stats */}
+            <div className="flex gap-6 mt-4">
+              <div className="text-center">
+                <p className="text-xl font-semibold">{stats.posts}</p>
+                <p className="text-sm text-gray-500">Posts</p>
+              </div>
+              <div className="text-center cursor-pointer hover:bg-gray-50 px-3 py-1 rounded">
+                <p className="text-xl font-semibold">{stats.followers}</p>
+                <p className="text-sm text-gray-500">Followers</p>
+              </div>
+              <div className="text-center cursor-pointer hover:bg-gray-50 px-3 py-1 rounded">
+                <p className="text-xl font-semibold">{stats.following}</p>
+                <p className="text-sm text-gray-500">Following</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* PROFILE EDIT MODAL */}
-      {open && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-xl w-96 shadow-xl flex flex-col gap-4">
-            <h2 className="text-xl font-semibold">Edit Profile</h2>
-
-            <div className="flex flex-col items-center gap-3">
-              <img
-                src={profileImg}
-                className="w-24 h-24 rounded-full object-cover border"
-                alt="preview"
-              />
-
-              <input
-                type="file"
-                id="profilePicInput"
-                onChange={handleImgChange}
-                className="hidden"
-              />
-
-              <label
-                htmlFor="profilePicInput"
-                className="cursor-pointer px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
-              >
-                Edit Picture
-              </label>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium">Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="border rounded-lg p-2"
-              />
-            </div>
-
-            <div className="flex justify-end gap-3 mt-3">
-              <button
-                onClick={() => setOpen(false)}
-                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={() => setOpen(false)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* EDIT POST MODAL */}
-      {editPostModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-xl w-96 shadow-xl flex flex-col gap-4">
-            <h2 className="text-lg font-semibold">Edit Post</h2>
-
-            <textarea
-              value={postText}
-              onChange={(e) => setPostText(e.target.value)}
-              className="border p-3 rounded-lg resize-none h-32"
-            />
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setEditPostModal(false)}
-                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={() => setEditPostModal(false)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* COMMENT MODAL */}
-      {commentOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-xl w-96 shadow-xl flex flex-col gap-4">
-            <h2 className="text-lg font-semibold">Comments</h2>
-
-            <textarea
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              className="border p-3 rounded-lg resize-none h-28"
-              placeholder="Write a comment..."
-            />
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setCommentOpen(false)}
-                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-              >
-                Close
-              </button>
-
-              <button
-                onClick={() => setCommentText("")}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Post
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* VIEW MODAL */}
-      {viewOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50"
-          onClick={() => setViewOpen(false)}
-        >
-          <img
-            src="https://picsum.photos/500/300"
-            className="rounded-2xl max-w-xl shadow-2xl"
-            alt="view"
-          />
-        </div>
-      )}
-    </>
+      {/* User's Posts would go here */}
+      <div className="mt-6">
+        {/* Add PostList component filtered by userId */}
+      </div>
+    </div>
   );
 }

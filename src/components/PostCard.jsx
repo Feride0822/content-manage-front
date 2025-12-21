@@ -8,6 +8,7 @@ import { createView, checkViewed } from "../api/view";
 import CommentList from "./CommentList";
 import { Swiper, SwiperSlide } from "swiper/react";
 import "swiper/css";
+import { Link } from "react-router-dom";
 
 export default function PostCard({ post, onDelete, currentUserId }) {
   const [liked, setLiked] = useState(false);
@@ -107,7 +108,7 @@ export default function PostCard({ post, onDelete, currentUserId }) {
   return (
     <div className="bg-white rounded-xl shadow-md p-4 space-y-3">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      {/* <div className="flex justify-between items-center">
         <span className="font-semibold">{post.user.displayName}</span>
         <button
           onClick={() => onDelete(post.id)}
@@ -115,6 +116,10 @@ export default function PostCard({ post, onDelete, currentUserId }) {
         >
           Delete
         </button>
+      </div> */}
+
+      <div>
+        <Link to={`/profile/${post?.user?.id}`}>{post?.user?.pseudoname}</Link>
       </div>
 
       {/* Content */}
@@ -134,8 +139,6 @@ export default function PostCard({ post, onDelete, currentUserId }) {
           ))}
         </Swiper>
       )}
-
-      {JSON.stringify(post)}
 
       {/* Actions */}
       <div className="flex items-center gap-4 mt-2 text-gray-600">

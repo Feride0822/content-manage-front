@@ -38,8 +38,8 @@ function AppRouter() {
         { path: "chat", element: <Chat /> },
         { path: "notification", element: <Notification /> },
         { path: "explore", element: <Explore /> },
-        { path: "profile", element: <Profile /> },
-        { path: "log-out", element: <Logut /> },
+        { path: "profile/:userId", element: <Profile /> },
+        { path: "login", element: <Logut /> },
       ],
     },
   ]);

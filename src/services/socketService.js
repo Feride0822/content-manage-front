@@ -10,6 +10,7 @@ class SocketService {
     this.socket = io("http://localhost:3003", {
       transports: ["websocket"],
       auth: { userId },
+      query: { userId }, // Also pass in query for backend compatibility
     });
 
     this.socket.on("connect", () => {
@@ -28,15 +29,24 @@ class SocketService {
       "like:created",
       "like:removed",
       "comment:created",
+      "comment:updated",
       "comment:deleted",
       "comment:typing",
       "comment:stop-typing",
-      "view:created", // ← Make sure this is here!
+      "view:created",
+      "follower:created", // ← Follow event (note: backend uses 'follower:created')
+      "follow:removed", // ← Unfollow event
+      "notification", // ← General notifications
     ].forEach((event) => {
       this.socket.on(event, (data) => {
         console.log(`🔔 Socket event received: ${event}`, data);
         this.emit(event, data);
       });
+    });
+
+    // DEBUGGING: Listen to ALL events to catch any we might be missing
+    this.socket.onAny((eventName, ...args) => {
+      console.log(`🔍 ANY Socket event: ${eventName}`, args);
     });
   }
 
@@ -75,16 +85,27 @@ class SocketService {
     }
   }
 
+  // Post events
   sendView(postId) {
     this.socket?.emit("post:view", { postId });
   }
 
+  // Comment events
   sendTyping(postId, displayName) {
     this.socket?.emit("comment:typing", { postId, displayName });
   }
 
   sendStopTyping(postId, displayName) {
     this.socket?.emit("comment:stop-typing", { postId, displayName });
+  }
+
+  // Follow events (optional - backend already emits these automatically)
+  sendFollow(followedId) {
+    this.socket?.emit("follow:create", { followedId });
+  }
+
+  sendUnfollow(followedId) {
+    this.socket?.emit("follow:remove", { followedId });
   }
 
   disconnect() {
