@@ -14,7 +14,6 @@ export default function PostList({ currentUserId }) {
   const isFetching = useRef(false);
 
   const { socketService } = useWebSocket();
-
   const [editingPost, setEditingPost] = useState(null);
 
   // Fetch posts from API

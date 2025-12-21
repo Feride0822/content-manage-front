@@ -25,7 +25,7 @@ export default function UserProfile() {
     following: 0,
     posts: 0,
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // loading page
   const { socketService } = useWebSocket();
 
   const isOwnProfile = currentUser?.id === userId;
