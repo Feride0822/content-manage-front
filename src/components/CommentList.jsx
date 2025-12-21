@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { getComments, createComment } from "../api/comment";
 import { useWebSocket } from "../providers/WebSocketProvider";
 import { STORAGE_KEYS } from "../constants/auth.constants";
+import { Link } from "react-router-dom";
 
 const CommentList = ({ postId }) => {
   const [comments, setComments] = useState([]);
@@ -64,7 +65,7 @@ const CommentList = ({ postId }) => {
 
     const onTyping = (data) => {
       if (data.postId === postId && data.displayName !== displayName) {
-        setTypingUsers((prev) => new Set([...prev, data.displayName]));
+        setTypingUsers((prev) => new Set([...prev, data.pseudoname]));
       }
     };
 
@@ -72,7 +73,7 @@ const CommentList = ({ postId }) => {
       if (data.postId === postId) {
         setTypingUsers((prev) => {
           const updated = new Set(prev);
-          updated.delete(data.displayName);
+          updated.delete(data.pseudoname);
           return updated;
         });
       }
@@ -183,9 +184,14 @@ const CommentList = ({ postId }) => {
           {comments.map((comment) => (
             <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
               <div className="flex items-center gap-2">
-                <span className="font-semibold">
-                  {comment.user.displayName}
-                </span>
+                <Link
+                  to={`/profile/${comment?.user?.id}`}
+                  className="hover:underline"
+                >
+                  <span className="font-semibold">
+                    {comment.user.pseudoname}
+                  </span>
+                </Link>
                 <span className="text-gray-500 text-sm">{comment.content}</span>
               </div>
             </div>

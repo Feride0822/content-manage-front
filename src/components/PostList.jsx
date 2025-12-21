@@ -326,7 +326,7 @@ export default function PostList({ currentUserId }) {
   const handleCancelEdit = () => setEditingPost(null);
 
   return (
-    <div className="space-y-4 w-full">
+    <div className="space-y-4 sm:space-y-6 w-full">
       {error && (
         <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-200">
           {error}
@@ -335,19 +335,21 @@ export default function PostList({ currentUserId }) {
 
       <PostForm onPostCreated={handlePostCreated} />
 
-      {posts.map((post, index) => (
+      {posts.map((post) => (
         <PostCard
-          key={post?.id}
+          key={post.id}
           post={post}
           onDelete={handleDeleted}
           currentUserId={currentUserId}
         />
       ))}
 
-      {loading && <p className="text-center text-gray-500">Loading...</p>}
+      {loading && <p className="text-center text-gray-500 py-4">Loading...</p>}
 
       {!loading && posts.length === 0 && (
-        <p className="text-center text-gray-500">No posts yet. Create one!</p>
+        <p className="text-center text-gray-500 py-6">
+          No posts yet. Create one!
+        </p>
       )}
     </div>
   );

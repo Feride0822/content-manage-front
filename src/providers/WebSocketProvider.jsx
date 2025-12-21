@@ -34,10 +34,10 @@ export const WebSocketProvider = ({ children }) => {
       },
       off: (event, cb) => socket.off(event, cb),
       emit: (event, data) => socket.emit(event, data),
-      sendTyping: (postId, displayName) =>
-        socket.emit("comment:typing", { postId, displayName }),
-      sendStopTyping: (postId, displayName) =>
-        socket.emit("comment:stop-typing", { postId, displayName }),
+      sendTyping: (postId, pseudoname) =>
+        socket.emit("comment:typing", { postId, pseudoname }),
+      sendStopTyping: (postId, pseudoname) =>
+        socket.emit("comment:stop-typing", { postId, pseudoname }),
       joinPostRoom: (postId) => socket.emit("post:join", { postId }),
     };
 

@@ -65,17 +65,28 @@ export default function PostForm({
   };
 
   return (
-    <div className="w-full bg-white rounded-3xl shadow-xl p-5 flex flex-col gap-4">
+    <div className="w-full bg-white rounded-2xl sm:rounded-3xl shadow-md sm:shadow-xl p-4 sm:p-5 flex flex-col gap-4">
       <textarea
-        className="w-full bg-gray-200 rounded-2xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="
+          w-full
+          bg-gray-100
+          rounded-xl
+          p-3
+          resize-none
+          text-sm
+          sm:text-base
+          focus:outline-none
+          focus:ring-2
+          focus:ring-blue-500
+        "
         rows={4}
         placeholder="What's on your mind?"
         value={content}
         onChange={(e) => setContent(e.target.value)}
       />
 
-      <div className="flex items-center justify-between">
-        <label className="cursor-pointer border-2 border-dashed border-gray-300 rounded-xl px-4 py-2 hover:border-blue-500">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <label className="cursor-pointer border-2 border-dashed border-gray-300 rounded-xl px-4 py-2 text-sm hover:border-blue-500 w-fit">
           Add images
           <input
             type="file"
@@ -86,12 +97,12 @@ export default function PostForm({
           />
         </label>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 justify-end">
           {postId && (
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 bg-gray-300 rounded-xl"
+              className="px-4 py-2 bg-gray-300 rounded-xl text-sm"
             >
               Cancel
             </button>
@@ -99,7 +110,7 @@ export default function PostForm({
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="px-6 py-2 bg-blue-500 text-white rounded-xl"
+            className="px-5 py-2 bg-blue-500 text-white rounded-xl text-sm"
           >
             {loading ? "Saving..." : postId ? "Update" : "Post"}
           </button>
@@ -113,7 +124,7 @@ export default function PostForm({
               key={i}
               src={src}
               alt=""
-              className="h-24 w-24 object-cover rounded-lg"
+              className="h-20 w-20 sm:h-24 sm:w-24 object-cover rounded-lg"
             />
           ))}
         </div>

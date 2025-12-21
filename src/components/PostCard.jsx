@@ -106,24 +106,18 @@ export default function PostCard({ post, onDelete, currentUserId }) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-md p-4 space-y-3">
-      {/* Header */}
-      {/* <div className="flex justify-between items-center">
-        <span className="font-semibold">{post.user.displayName}</span>
-        <button
-          onClick={() => onDelete(post.id)}
-          className="text-red-500 text-sm hover:text-red-700"
-        >
-          Delete
-        </button>
-      </div> */}
-
-      <div>
-        <Link to={`/profile/${post?.user?.id}`}>{post?.user?.pseudoname}</Link>
+    <div className="bg-white rounded-xl shadow-sm sm:shadow-md p-3 sm:p-4 space-y-3">
+      {/* User */}
+      <div className="text-sm font-medium text-gray-700">
+        <Link to={`/profile/${post?.user?.id}`} className="hover:underline">
+          {post?.user?.pseudoname}
+        </Link>
       </div>
 
       {/* Content */}
-      <div className="text-gray-800">{post.content}</div>
+      <div className="text-gray-800 text-sm sm:text-base wrap-break-words">
+        {post.content}
+      </div>
 
       {/* Images */}
       {Array.isArray(post.imageUrls) && post.imageUrls.length > 0 && (
@@ -132,7 +126,13 @@ export default function PostCard({ post, onDelete, currentUserId }) {
             <SwiperSlide key={idx}>
               <img
                 src={img.url}
-                className="w-full rounded-lg max-h-80 object-cover"
+                className="
+                  w-full
+                  rounded-lg
+                  max-h-[300px]
+                  sm:max-h-[400px]
+                  object-cover
+                "
                 alt=""
               />
             </SwiperSlide>
@@ -141,24 +141,24 @@ export default function PostCard({ post, onDelete, currentUserId }) {
       )}
 
       {/* Actions */}
-      <div className="flex items-center gap-4 mt-2 text-gray-600">
+      <div className="flex items-center gap-5 mt-2 text-gray-600 text-sm">
         <button
           onClick={handleLike}
           disabled={loading}
           className="flex items-center gap-1 hover:text-red-500 transition-colors"
         >
-          {liked ? <IoHeart size={22} color="red" /> : <CiHeart size={22} />}
-          <span className="text-sm">{post._count?.likes || 0}</span>
+          {liked ? <IoHeart size={20} color="red" /> : <CiHeart size={20} />}
+          <span>{post._count?.likes || 0}</span>
         </button>
 
         <div className="flex items-center gap-1">
-          <FaRegComment size={20} />
-          <span className="text-sm">{post._count?.comments || 0}</span>
+          <FaRegComment size={18} />
+          <span>{post._count?.comments || 0}</span>
         </div>
 
         <div className="flex items-center gap-1">
-          <MdOutlineRemoveRedEye size={22} />
-          <span className="text-sm">{post._count?.views || 0}</span>
+          <MdOutlineRemoveRedEye size={20} />
+          <span>{post._count?.views || 0}</span>
         </div>
       </div>
 

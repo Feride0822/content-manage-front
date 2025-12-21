@@ -226,31 +226,43 @@ function Explore() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto mt-5 space-y-3">
+    <div className="w-full px-2 sm:px-0 sm:max-w-2xl mx-auto mt-3 sm:mt-5 space-y-3">
       {users?.length === 0 ? (
         <p className="text-center text-gray-500">No users found</p>
       ) : (
-        users?.map((user, index) => (
+        users.map((user, index) => (
           <div
             key={user.id}
-            className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border"
+            className="
+              flex
+              items-center
+              justify-between
+              bg-white
+              p-3
+              sm:p-4
+              rounded-xl
+              shadow-sm
+              border
+              gap-3
+            "
           >
             {/* Left user info */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <img
                 src={user.avatarUrl || avatarImg}
                 alt="avatar"
-                className="w-12 h-12 rounded-full object-cover border"
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border flex-shrink-0"
               />
 
-              <div>
+              <div className="min-w-0">
                 <Link
-                  className="font-medium hover:underline"
+                  className="font-medium hover:underline text-sm sm:text-base truncate block"
                   to={`/profile/${user?.id}`}
                 >
                   {user.displayName || user.pseudoname}
                 </Link>
-                <p className="text-sm text-gray-500">
+
+                <p className="text-xs sm:text-sm text-gray-500 truncate">
                   {user?._count?.posts || 0} posts •{" "}
                   {user?._count?.followers || 0}
                   {user?._count?.followers === 1 ? " follower" : " followers"}
@@ -262,13 +274,25 @@ function Explore() {
             <button
               onClick={() => handleToggleFollow(user.id, index)}
               disabled={followLoading[user.id]}
-              className={`px-4 py-1 rounded-xl border transition-all ${
-                user.following
-                  ? "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-                  : "bg-black text-white hover:bg-gray-800"
-              } ${
-                followLoading[user.id] ? "opacity-50 cursor-not-allowed" : ""
-              }`}
+              className={`
+                px-3
+                sm:px-4
+                py-1
+                sm:py-1.5
+                rounded-lg
+                sm:rounded-xl
+                text-xs
+                sm:text-sm
+                border
+                transition-all
+                whitespace-nowrap
+                ${
+                  user.following
+                    ? "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                    : "bg-black text-white hover:bg-gray-800"
+                }
+                ${followLoading[user.id] ? "opacity-50 cursor-not-allowed" : ""}
+              `}
             >
               {followLoading[user.id]
                 ? "..."

@@ -1,32 +1,46 @@
 import { useState, useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
 import { getMe, getUserById } from "../api/user";
-import { getFollowerCount, getFollowingCount } from "../api/follow";
+import {
+  getFollowerCount,
+  getFollowingCount,
+  getFollowers,
+  getFollowing,
+} from "../api/follow";
+import { getPostsByUserId } from "../api/post";
 import { useWebSocket } from "../providers/WebSocketProvider";
-import avatarImg from "/user.jpeg";
 import FollowButton from "../components/FollowButton";
-import { useParams } from "react-router-dom";
+import PostCard from "../components/PostCard";
+import avatarImg from "/user.jpeg";
 
 export default function UserProfile() {
   const { userId } = useParams();
   const [currentUser, setCurrentUser] = useState();
-  const getCurrentUser = async () => {
-    const res = await getMe();
-    console.log(res, "Current user");
-    setCurrentUser(res);
-  };
-
-  useEffect(() => {
-    getCurrentUser();
-  }, []);
-
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({
     followers: 0,
     following: 0,
     posts: 0,
   });
-  const [loading, setLoading] = useState(false); // loading page
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("posts");
+
+  // Tab content data
+  const [posts, setPosts] = useState([]);
+  const [followers, setFollowers] = useState([]);
+  const [following, setFollowing] = useState([]);
+  const [tabLoading, setTabLoading] = useState(false);
+
   const { socketService } = useWebSocket();
+
+  const getCurrentUser = async () => {
+    const res = await getMe();
+    setCurrentUser(res);
+  };
+
+  useEffect(() => {
+    getCurrentUser();
+  }, []);
 
   const isOwnProfile = currentUser?.id === userId;
 
@@ -39,7 +53,6 @@ export default function UserProfile() {
         const followerData = await getFollowerCount(userId);
         const followingData = await getFollowingCount(userId);
 
-        console.log(userData, "User data from current");
         setUser(userData);
         setStats({
           followers: followerData.followers,
@@ -58,82 +71,97 @@ export default function UserProfile() {
     }
   }, [userId]);
 
+  // Fetch tab content when tab changes
+  useEffect(() => {
+    const fetchTabContent = async () => {
+      setTabLoading(true);
+      try {
+        if (activeTab === "posts") {
+          const postsData = await getPostsByUserId(userId);
+          console.log(postsData, "Posts by userId");
+          setPosts(postsData || []);
+        } else if (activeTab === "followers") {
+          const followersData = await getFollowers(userId);
+          setFollowers(followersData);
+        } else if (activeTab === "following") {
+          const followingData = await getFollowing(userId);
+          setFollowing(followingData);
+        }
+      } catch (error) {
+        console.error(`Error fetching ${activeTab}:`, error);
+      } finally {
+        setTabLoading(false);
+      }
+    };
+
+    if (userId) {
+      fetchTabContent();
+    }
+  }, [activeTab, userId]);
+
   // Listen for follow/unfollow events
   useEffect(() => {
     if (!socketService || !userId) return;
 
-    console.log(
-      "🔌 [UserProfile] Setting up socket listeners for userId:",
-      userId
-    );
-
-    // ✅ FIXED: Changed from "follow:created" to "follower:created"
     const unsubscribeFollow = socketService.on("follower:created", (data) => {
-      console.log("🔔 [UserProfile] follower:created event:", data);
-
       // If someone followed this user, increment followers
       if (data.followedId === userId) {
-        console.log(
-          `✅ [UserProfile] Someone followed this user (${userId}), incrementing followers`
-        );
         setStats((prev) => ({
           ...prev,
           followers: prev.followers + 1,
         }));
+
+        // Refresh followers list if on that tab
+        if (activeTab === "followers") {
+          getFollowers(userId).then((data) => setFollowers(data));
+        }
       }
       // If this user followed someone, increment following
       if (data.followerId === userId) {
-        console.log(
-          `✅ [UserProfile] This user (${userId}) followed someone, incrementing following`
-        );
         setStats((prev) => ({
           ...prev,
           following: prev.following + 1,
         }));
+
+        // Refresh following list if on that tab
+        if (activeTab === "following") {
+          getFollowing(userId).then((data) => setFollowing(data));
+        }
       }
     });
 
     const unsubscribeUnfollow = socketService.on("follow:removed", (data) => {
-      console.log("🔕 [UserProfile] follow:removed event:", data);
-
       // If someone unfollowed this user, decrement followers
       if (data.followedId === userId) {
-        console.log(
-          `✅ [UserProfile] Someone unfollowed this user (${userId}), decrementing followers`
-        );
         setStats((prev) => ({
           ...prev,
           followers: Math.max(0, prev.followers - 1),
         }));
+
+        // Refresh followers list if on that tab
+        if (activeTab === "followers") {
+          getFollowers(userId).then((data) => setFollowers(data));
+        }
       }
       // If this user unfollowed someone, decrement following
       if (data.followerId === userId) {
-        console.log(
-          `✅ [UserProfile] This user (${userId}) unfollowed someone, decrementing following`
-        );
         setStats((prev) => ({
           ...prev,
           following: Math.max(0, prev.following - 1),
         }));
+
+        // Refresh following list if on that tab
+        if (activeTab === "following") {
+          getFollowing(userId).then((data) => setFollowing(data));
+        }
       }
     });
 
     return () => {
-      console.log("🔌 [UserProfile] Cleaning up socket listeners");
       unsubscribeFollow();
       unsubscribeUnfollow();
     };
-  }, [socketService, userId]);
-
-  const handleFollowChange = (isFollowing) => {
-    console.log(
-      "🔄 [UserProfile] handleFollowChange called, isFollowing:",
-      isFollowing
-    );
-    // DON'T update follower count here!
-    // The socket event will handle it
-    // This callback is just for notification purposes
-  };
+  }, [socketService, userId, activeTab]);
 
   if (loading) {
     return (
@@ -152,57 +180,113 @@ export default function UserProfile() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto mt-10">
-      {/* Profile Header */}
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <div className="flex items-start gap-6">
-          {/* Avatar */}
+    <div className="w-full px-3 sm:px-0 sm:max-w-2xl mx-auto mt-4 sm:mt-8">
+      {/* Header */}
+      <div className="bg-white rounded-xl shadow p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
           <img
             src={user.avatarUrl || avatarImg}
-            alt={user.displayName || user.pseudoname}
-            className="w-24 h-24 rounded-full object-cover border-2"
+            className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border object-cover mx-auto sm:mx-0"
           />
 
-          {/* User Info */}
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-2">
-              <h1 className="text-2xl font-bold">
+          <div className="flex-1 text-center sm:text-left">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold">
                 {user.displayName || user.pseudoname}
               </h1>
-              {!isOwnProfile && (
-                <FollowButton
-                  userId={userId}
-                  onFollowChange={handleFollowChange}
-                />
-              )}
+              {!isOwnProfile && <FollowButton userId={userId} />}
             </div>
 
             {user.username && (
-              <p className="text-gray-500 mb-3">@{user.username}</p>
+              <p className="text-gray-500 text-sm mt-1">@{user.username}</p>
             )}
 
-            {/* Stats */}
-            <div className="flex gap-6 mt-4">
-              <div className="text-center">
-                <p className="text-xl font-semibold">{stats.posts}</p>
-                <p className="text-sm text-gray-500">Posts</p>
-              </div>
-              <div className="text-center cursor-pointer hover:bg-gray-50 px-3 py-1 rounded">
-                <p className="text-xl font-semibold">{stats.followers}</p>
-                <p className="text-sm text-gray-500">Followers</p>
-              </div>
-              <div className="text-center cursor-pointer hover:bg-gray-50 px-3 py-1 rounded">
-                <p className="text-xl font-semibold">{stats.following}</p>
-                <p className="text-sm text-gray-500">Following</p>
-              </div>
+            <div className="flex justify-center sm:justify-start gap-4 sm:gap-6 mt-4">
+              {["posts", "followers", "following"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-3 py-1 rounded text-center ${
+                    activeTab === tab ? "bg-gray-100" : "hover:bg-gray-50"
+                  }`}
+                >
+                  <p className="font-semibold">
+                    {stats[tab === "posts" ? "posts" : tab]}
+                  </p>
+                  <p className="text-xs text-gray-500 capitalize">{tab}</p>
+                </button>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* User's Posts would go here */}
-      <div className="mt-6">
-        {/* Add PostList component filtered by userId */}
+      {/* Tabs */}
+      <div className="bg-white mt-3 rounded-xl shadow">
+        <div className="flex text-sm sm:text-base">
+          {["posts", "followers", "following"].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-3 font-medium ${
+                activeTab === tab ? "border-b-2 border-black" : "text-gray-500"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="mt-4 space-y-3">
+        {tabLoading && (
+          <p className="text-center text-gray-500 py-6">Loading…</p>
+        )}
+
+        {activeTab === "posts" &&
+          posts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              currentUserId={currentUser?.id}
+              onDelete={(id) =>
+                setPosts((prev) => prev.filter((p) => p.id !== id))
+              }
+            />
+          ))}
+
+        {activeTab !== "posts" &&
+          (activeTab === "followers" ? followers : following).map((item) => {
+            const u = activeTab === "followers" ? item.follower : item.followed;
+            return (
+              <div
+                key={u.id}
+                className="bg-white p-3 sm:p-4 rounded-xl shadow flex items-center justify-between gap-3"
+              >
+                <Link
+                  to={`/profile/${u.id}`}
+                  className="flex items-center gap-3 flex-1 min-w-0"
+                >
+                  <img
+                    src={u.avatarUrl || avatarImg}
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border"
+                  />
+                  <div className="truncate">
+                    <p className="font-medium truncate">
+                      {u.displayName || u.pseudoname}
+                    </p>
+                    {u.username && (
+                      <p className="text-xs text-gray-500 truncate">
+                        @{u.username}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+                {currentUser?.id !== u.id && <FollowButton userId={u.id} />}
+              </div>
+            );
+          })}
       </div>
     </div>
   );
