@@ -12,7 +12,7 @@ const Register = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // navigate
   const { register } = useAuth();
 
   const handleRegister = async (e) => {
@@ -131,7 +131,7 @@ const Register = () => {
             </div>
           )}
 
-          {/* Register button */}
+          {/* Register button switch*/}
           <button
             type="submit"
             className="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition duration-150 ease-in-out disabled:opacity-75 disabled:cursor-not-allowed cursor-pointer"
