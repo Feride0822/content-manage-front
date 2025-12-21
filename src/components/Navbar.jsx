@@ -4,7 +4,7 @@ import { HiOutlineHome } from "react-icons/hi";
 import { IoMdNotificationsOutline } from "react-icons/io";
 import { TbBrandSafari } from "react-icons/tb";
 import { Link, NavLink } from "react-router-dom";
-import { getMe } from "../../api/user";
+import { getMe } from "../api/user";
 import { useEffect, useState } from "react";
 
 function Navbar() {

@@ -3,6 +3,7 @@ import { getUsers } from "../api/user";
 import { toggleFollow, checkFollowing } from "../api/follow";
 import { useWebSocket } from "../providers/WebSocketProvider";
 import avatarImg from "/user.jpeg";
+import { Link } from "react-router-dom";
 
 function Explore() {
   const [users, setUsers] = useState([]);
@@ -243,9 +244,12 @@ function Explore() {
               />
 
               <div>
-                <h4 className="font-medium">
+                <Link
+                  className="font-medium hover:underline"
+                  to={`/profile/${user?.id}`}
+                >
                   {user.displayName || user.pseudoname}
-                </h4>
+                </Link>
                 <p className="text-sm text-gray-500">
                   {user?._count?.posts || 0} posts •{" "}
                   {user?._count?.followers || 0}
